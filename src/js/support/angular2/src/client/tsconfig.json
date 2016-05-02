@@ -1,0 +1,38 @@
+{
+  "compileOnSave": false,
+  "compilerOptions": {
+    "declaration": false,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "mapRoot": "",
+    "module": "system",
+    "moduleResolution": "node",
+    "noEmitOnError": true,
+    "noImplicitAny": false,
+    "outDir": "../dist/",
+    "rootDir": ".",
+    "sourceMap": true,
+    "target": "es5",
+    "inlineSources": true
+  },
+  "filesGlob": [
+    "./**/*.ts",
+    "!./**/*.d.ts",
+    "!./**/index.ts",
+    "typings.d.ts",
+    "!./**/*.spec.ts"
+  ],
+  "files": [
+    "./app/+vertical-bars/vertical-bars.component.ts",
+    "./app/angular2.ts",
+    "./app/environment.ts",
+    "./app/event-emitter-service.service.ts",
+    "./app/vertical-bar-chart/vertical-bar-chart.directive.ts",
+    "./main.ts",
+    "./system-config.ts",
+    "typings.d.ts"
+  ],
+  "atom": {
+    "rewriteTsconfig": true
+  }
+}

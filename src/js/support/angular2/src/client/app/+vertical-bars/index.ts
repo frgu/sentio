@@ -1,0 +1,1 @@
+export {VerticalBarsComponent} from './vertical-bars.component';
