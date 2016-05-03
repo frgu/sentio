@@ -1,0 +1,29 @@
+
+	<h1>Real-time timeline example</h1>
+	<p>AngularJS integrated D3 Real-time timeline example</p>
+
+  <realtime-timeline [style.height.px]="100" [delay]="delay" [fps]="fps" [markerLabel]="markerLabel"></realtime-timeline>
+
+	<label for="delay">Delay: </label>
+	<input type="text" [(ngModel)]="delay" placeholder="delay"/>
+	<br/>
+
+	<div>
+		<label for="fps">FPS: </label>
+		<input id="fps" type="text" [(ngModel)]="fps" placeholder="fps"/>
+	</div>
+
+	<div>
+		<input id="markerLabel" type="text" [(ngModel)]="markerLabel" placeholder="Marker Label"/>
+		<button (click)="addMarker()">Add Marker</button>
+	</div>
+
+	<div>
+		<button (click)="doStart()">Start</button>
+		<button (click)="doStop()">Stop</button>
+	</div>
+
+	<div *ngIf="hoverText != null && hoverText != ''">
+		<label>Hover Payload</label>
+		<input type="text" [(ngModel)]="hoverText" />
+	</div>

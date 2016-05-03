@@ -23,11 +23,16 @@
     "!./**/*.spec.ts"
   ],
   "files": [
-    "./app/+vertical-bars/vertical-bars.component.ts",
+    "./app/+realtime-timeline/realtime-timeline.component.ts",
+    "./app/+timeline-line/timeline-line.component.ts",
     "./app/angular2.ts",
+    "./app/directives/donut-chart/donut-chart.directive.ts",
+    "./app/directives/matrix-chart/matrix-chart.directive.ts",
+    "./app/directives/realtime-timeline/realtime-timeline.directive.ts",
+    "./app/directives/timeline-line/timeline-line.directive.ts",
+    "./app/directives/vertical-bar-chart/vertical-bar-chart.directive.ts",
     "./app/environment.ts",
-    "./app/event-emitter-service.service.ts",
-    "./app/vertical-bar-chart/vertical-bar-chart.directive.ts",
+    "./app/services/event-emitter-service.service.ts",
     "./main.ts",
     "./system-config.ts",
     "typings.d.ts"

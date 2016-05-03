@@ -1,6 +1,8 @@
 const barrels: string[] = [
   'app',
   'app/+vertical-bars',
+  'app/+realtime-timeline',
+  'app/+timeline-line',
   /** @cli-barrel */
 ];
 

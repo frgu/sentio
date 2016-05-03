@@ -1,7 +1,7 @@
 import {Directive, ElementRef, Input, OnInit} from 'angular2/core';
+import {EventEmitterService} from '../../services/event-emitter-service.service';
 import * as d3 from 'd3';
 declare function sentio_chart_vertical_bars();
-import {EventEmitterService} from '../event-emitter-service.service';
 @Directive({
   selector: 'vertical-bar-chart'
 })
@@ -9,8 +9,8 @@ export class VerticalBarChart implements OnInit{
   private chart;
   private chartElement;
   private resizeWidth;
-  public model = [];
   private widthExtent = [0, undefined];
+  @Input() sentioResizeWidth;
 
   constructor(el: ElementRef) {
     this.chartElement = d3.select(el.nativeElement);
@@ -27,10 +27,8 @@ export class VerticalBarChart implements OnInit{
 
     this.chart.init(this.chartElement);
     this.configureBarChart(this.chart);
-    this.updateData();
-    this.chart.data(this.model);
     this.chart.widthExtent().overrideValue(this.widthExtent);
-    this.redraw();
+    this.updateData();
     EventEmitterService.get('updateData').subscribe(data => this.updateData());
   }
 
@@ -58,15 +56,10 @@ export class VerticalBarChart implements OnInit{
       return b.value - a.value;
     }).slice(0, 12);
 
-    this.model = data;
-    this.chart.data(this.model);
-    this.redraw();
+    this.chart.data(data);
+    this.chart.redraw();
 
   }
-  // Do the redraw only once when the $digest cycle has completed
-	redraw() {
-		this.chart.redraw();
-	}
 
   doResize() {
 
@@ -84,7 +77,7 @@ export class VerticalBarChart implements OnInit{
 				var parentWidth = rawElement.attributes.width | rawElement.style.width | rawElement.clientWidth;
 
 				// Calculate the new width based on the parent and the resize size
-				var width = (this.resizeWidth)? /*parentWidth - attrs.sentioResizeWidth*/ 200 : undefined;
+				var width = (this.resizeWidth)? parentWidth - this.sentioResizeWidth : undefined;
 
 				// Reapply the old overflow setting
 				body.style.overflow = overflow;
@@ -95,7 +88,7 @@ export class VerticalBarChart implements OnInit{
 				if(this.resizeWidth){ this.chart.width(width); }
 
 				this.chart.resize();
-				this.redraw();
+				this.chart.redraw();
 			}
 
 }
