@@ -11,15 +11,15 @@ import {
   TestComponentBuilder
 } from 'angular2/testing';
 import {provide} from 'angular2/core';
-import {TimelineLineComponent} from './timeline-line.component';
+import {DonutComponent} from './donut.component';
 
-describe('TimelineLine Component', () => {
+describe('Donut Component', () => {
 
   beforeEachProviders((): any[] => []);
 
 
   it('should ...', injectAsync([TestComponentBuilder], (tcb:TestComponentBuilder) => {
-    return tcb.createAsync(TimelineLineComponent).then((fixture: ComponentFixture) => {
+    return tcb.createAsync(DonutComponent).then((fixture: ComponentFixture) => {
       fixture.detectChanges();
     });
   }));

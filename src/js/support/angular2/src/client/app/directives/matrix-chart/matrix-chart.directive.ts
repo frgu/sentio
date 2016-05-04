@@ -1,4 +1,4 @@
-import {Directive, ElementRef, OnInit} from 'angular2/core';
+import {Directive, ElementRef, OnInit, Input} from 'angular2/core';
 import {EventEmitterService} from '../../services/event-emitter-service.service';
 import * as d3 from 'd3';
 declare function sentio_chart_matrix();
@@ -7,10 +7,15 @@ declare function sentio_chart_matrix();
   selector: 'matrix-chart'
 })
 export class MatrixChart {
+
   private chart;
   private chartElement;
   private resizeWidth;
+  private resizeHeight;
+  private resizeTimer;
 
+  @Input() sentioResizeWidth;
+  @Input() sentioResizeHeight;
 
   constructor(el: ElementRef) {
     this.chartElement = d3.select(el.nativeElement);
@@ -74,4 +79,5 @@ export class MatrixChart {
 				this.chart.data(series);
         this.chart.redraw();
 			};
+      
 }

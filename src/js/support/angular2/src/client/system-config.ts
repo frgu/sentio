@@ -3,6 +3,11 @@ const barrels: string[] = [
   'app/+vertical-bars',
   'app/+realtime-timeline',
   'app/+timeline-line',
+  'app/routes/+donut',
+  'app/routes/+vertical',
+  'app/routes/+matrix',
+  'app/routes/+realtime',
+  'app/routes/+timeline',
   /** @cli-barrel */
 ];
 

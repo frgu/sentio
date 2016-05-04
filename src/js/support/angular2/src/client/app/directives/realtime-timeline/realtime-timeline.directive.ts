@@ -150,7 +150,7 @@ export class RealtimeTimeline implements DoCheck, OnChanges {
         body.style.overflow = 'hidden';
 
         // Get the raw parent
-        var rawElement = this.timelineElement[0][0].children[0];
+        var rawElement = this.timelineElement[0][0].firstChild;
         // Derive height/width of the parent (there are several ways to do this depending on the parent)
         var parentWidth = rawElement.attributes.width | rawElement.style.width | rawElement.clientWidth;
         var parentHeight = rawElement.attributes.height | rawElement.style.height | rawElement.clientHeight;

@@ -1,0 +1,1 @@
+export {DonutComponent} from './donut.component';

@@ -11,15 +11,15 @@ import {
   TestComponentBuilder
 } from 'angular2/testing';
 import {provide} from 'angular2/core';
-import {RealtimeTimelineComponent} from './realtime-timeline.component';
+import {VerticalComponent} from './vertical.component';
 
-describe('RealtimeTimeline Component', () => {
+describe('Vertical Component', () => {
 
   beforeEachProviders((): any[] => []);
 
 
   it('should ...', injectAsync([TestComponentBuilder], (tcb:TestComponentBuilder) => {
-    return tcb.createAsync(RealtimeTimelineComponent).then((fixture: ComponentFixture) => {
+    return tcb.createAsync(VerticalComponent).then((fixture: ComponentFixture) => {
       fixture.detectChanges();
     });
   }));

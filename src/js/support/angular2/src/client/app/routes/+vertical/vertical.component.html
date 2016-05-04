@@ -1,0 +1,6 @@
+<h1>Bar Chart Example</h1>
+<p>AngularJS integrated D3 vertical bar chart</p>
+<vertical-bar-chart
+        (window:resize)="onResize($event)"
+        [style.width.px]="150"></vertical-bar-chart>
+<button (click)="updateData()">Update Data</button>

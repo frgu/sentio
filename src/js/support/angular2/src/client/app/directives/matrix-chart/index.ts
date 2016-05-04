@@ -1,0 +1,1 @@
+export {MatrixChart} from './matrix-chart.directive';

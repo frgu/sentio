@@ -1,0 +1,9 @@
+<h1>Donut Chart Example</h1>
+<p>AngularJS integrated D3 donut chart</p>
+<donut-chart
+        (window:resize)="onResize($event)"
+        [style.width.px]="300"
+        [style.height.px]="300"
+        [sentioResizeWidth]="0"
+        [sentioResizeHeight]="0"></donut-chart>
+<button (click)="updateData()">Update Data</button>
