@@ -2,7 +2,12 @@
 	<h1>Real-time timeline example</h1>
 	<p>AngularJS integrated D3 Real-time timeline example</p>
 
-  <realtime-timeline [style.height.px]="100" [delay]="delay" [fps]="fps" [markerLabel]="markerLabel"></realtime-timeline>
+  <realtime-timeline 	(window:resize)="onResize($event)"
+											[style.height.px]="100"
+											[delay]="delay"
+											[fps]="fps"
+											[markerLabel]="markerLabel"
+											[sentioResizeWidth]="0"></realtime-timeline>
 
 	<label for="delay">Delay: </label>
 	<input type="text" [(ngModel)]="delay" placeholder="delay"/>

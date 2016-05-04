@@ -29,6 +29,9 @@ export class RealtimeTimelineComponent implements OnInit {
   doStop(){
     EventEmitterService.get('doStop').emit('click');
   }
+  onResize(event){
+    EventEmitterService.get('onResize').emit(event);
+  }
 
 
 }
