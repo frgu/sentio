@@ -21,5 +21,7 @@ export class TimelineLineComponent implements OnInit {
   updateFilter(){
     EventEmitterService.get('updateFilter').emit('click');
   }
-
+  onResize(event){
+    EventEmitterService.get('onResize').emit(event);
+  }
 }
