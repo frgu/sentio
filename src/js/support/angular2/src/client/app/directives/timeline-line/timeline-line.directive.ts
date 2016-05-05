@@ -1,4 +1,4 @@
-import {Directive, ElementRef, Input, OnInit, DoCheck, OnChanges, SimpleChange} from 'angular2/core';
+import {Directive, ElementRef, Input, OnInit, OnChanges, SimpleChange, AfterContentInit} from 'angular2/core';
 import {EventEmitterService} from '../../services/event-emitter-service.service';
 import * as d3 from 'd3';
 declare function sentio_timeline_line();
@@ -6,61 +6,89 @@ declare function sentio_timeline_line();
 @Directive({
     selector: 'timeline-line'
 })
-export class TimelineLine implements DoCheck, OnChanges {
+export class TimelineLine implements AfterContentInit ,OnChanges {
 
     private timeline;
     private timelineElement;
     private resizeWidth;
     private resizeHeight;
     private resizeTimer;
-    private redrawTimer;
-    public filterState;
-    public lastFilterState;
 
-    @Input() sentioResizeWidth: number;
-    @Input() sentioResizeHeight: number;
-    @Input() sentioFilter: boolean;
-
-    data = [];
-    private model = [];
-    private markers = [];
-    private interval = 60000;
-    private binSize = 1000;
-    private yExtent = [0, undefined];
-    private hwm = Date.now();
+    @Input() configureFn;
+    @Input() filterFn;
+    @Input() filterState;
+    @Input() interval;
+    @Input() markerHover;
+    @Input() markerLabel;
+    @Input() markers;
+    @Input() model;
+    @Input() sentioResizeWidth;
+    @Input() sentioResizeHeight;
+    @Input() yExtent;
 
     constructor(el: ElementRef) {
         this.timelineElement = d3.select(el.nativeElement);
     }
-
-    ngOnChanges(changes: { [key: string]: SimpleChange }) {
-
-
-    }
-
-    ngDoCheck() {
-        if (null != this.filterState && this.filterState !== this.lastFilterState) {
-
-            // If we're in the original format with 3 parameters, use the second two only
-            // TODO: We should go ahead and get rid of the 3 parameter style
-            if (this.filterState.length > 2) {
-                // The first element indicates if we're disabled
-                if (this.filterState[0]) {
-                    return;
-                }
-                this.filterState = this.filterState.slice(1, 3);
-            }
-            this.timeline.setFilter(this.filterState).redraw();
-            this.lastFilterState = this.filterState;
-            console.log({ msg: 'Watch Filter', filter: this.filterState });
+    ngAfterContentInit() {
+        if (this.filterFn != null) {
+            this.timeline.filter().on('filterend', (fs) => {
+                setTimeout(() => {
+                    // Call the function callback
+                    this.filterFn(fs);
+                });
+            });
+        }
+        if(null != this.configureFn){
+          this.configureFn(this.timeline);
         }
     }
+    ngOnChanges(changes: { [key: string]: SimpleChange }) {
+        if (!this.timeline) return;
 
+        if (changes['filterState']) {
+            // If a filter was passed in and it is not the one we just set, do some updates
+            if (null != changes['filterState'].currentValue
+            && JSON.stringify(changes['filterState'].currentValue) != JSON.stringify(changes['filterState'].previousValue)) {
+
+                // If we're in the original format with 3 parameters, use the second two only
+                // TODO: We should go ahead and get rid of the 3 parameter style
+                if (changes['filterState'].currentValue.length > 2) {
+                    // The first element indicates if we're disabled
+                    if (changes['filterState'].currentValue[0]) {
+                        return;
+                    }
+                    this.filterState = changes['filterState'].currentValue.slice(1, 3);
+                }
+                this.timeline.setFilter(this.filterState);
+          			console.log({ msg: 'Watch Filter', filter: this.filterState });
+            }
+        }
+        if (changes['model']) {
+            this.timeline.data(changes['model'].currentValue).redraw();
+        }
+        if (changes['markers']) {
+            this.timeline.markers(changes['markers'].currentValue).redraw();
+        }
+        if (changes['interval']) {
+            this.timeline.interval(changes['interval'].currentValue).redraw();
+        }
+        if (changes['yExtent']) {
+            this.timeline.yExtent().overrideValue(changes['yExtent'].currentValue);
+            this.timeline.redraw();
+        }
+        if (changes['xExtent']) {
+            this.timeline.xExtent().overrideValue(changes['xExtent'].currentValue);
+            this.timeline.redraw();
+        }
+        if (changes['duration']) {
+            this.timeline.duration(changes['duration'].currentValue);
+        }
+    }
     ngOnInit() {
-        this.resizeWidth = (null != this.sentioResizeWidth);
-        this.resizeHeight = (null != this.sentioResizeHeight);
         this.timeline = sentio_timeline_line();
 
+        this.resizeWidth = (null != this.sentioResizeWidth);
+        this.resizeHeight = (null != this.sentioResizeHeight);
         // Extract the height and width of the chart
         var width = this.timelineElement[0][0].style.width;
         if (null != width && '' !== width) {
@@ -73,83 +101,17 @@ export class TimelineLine implements DoCheck, OnChanges {
             if (null != height && !isNaN(height)) { this.timeline.height(height); }
         }
 
-        // Store the filter state outside the scope as well as inside, to compare
-        this.lastFilterState = null;
         // Check to see if filtering is enabled
-        if (null != this.sentioFilter) {
-            this.timeline.filter(this.sentioFilter);
-
-            this.timeline.filter().on('filterend', (fs) => {
-                setTimeout(() => {
-                    // Call the function callback
-                    this.filter({ filterState: fs });
-
-                    // Set the two-way-bound scope parameter
-                    this.filterState = fs;
-
-                    // Store the filter state locally so we can suppress updates on our own changes
-                    this.lastFilterState = fs;
-                });
-            });
+        if (null != this.filterFn || this.filterState) {
+            this.timeline.filter(true);
         }
+
+        EventEmitterService.get('onResize').subscribe(event => this.onResize(event));
 
         this.timeline.init(this.timelineElement);
-        this.configure(this.timeline);
-        this.updateData();
-        this.doResize();
-
-        EventEmitterService.get('updateData').subscribe(data => this.updateData());
-        EventEmitterService.get('updateFilter').subscribe(data => this.updateFilter());
-        EventEmitterService.get('onResize').subscribe(event => this.onResize(event));
+        EventEmitterService.get('timelineInit').emit('done');
     }
-
-    generateData(start) {
-        var toReturn = [];
-        for (var i = 0; i < this.interval / this.binSize; i++) {
-            toReturn.push([start + i * this.binSize, Math.random() * 10]);
-        }
-        return toReturn;
-    };
-
-    generateMarkers(start, samples) {
-        this.markers = [];
-
-        var toReturn = [];
-        for (var i = 0; i < samples; i++) {
-            toReturn.push([start + Math.random() * this.interval, i]);
-        }
-        return toReturn;
-    };
-
-    updateData() {
-        this.hwm = Date.now();
-        this.model = [{ key: 'series1', data: this.generateData(this.hwm - this.interval) }];
-        this.markers = this.generateMarkers(this.hwm - this.interval, 25);
-        this.timeline.markers(this.markers);
-        this.timeline.data(this.model).redraw();
-    }
-
-    filter(filterState) {
-        console.log(filterState);
-    };
-
-    configure(chart) {
-        chart.markers().on('onclick', function(marker) {
-            console.log(marker);
-        });
-    };
-
-    updateFilter() {
-        var lf = this.hwm - Math.random() * this.interval;
-        var hf = lf + Math.random() * 20000;
-        var newFilter = [lf, hf];
-        console.log({ m: 'Applying filter', filter: newFilter });
-
-        this.filterState = newFilter;
-        this.timeline.setFilter(this.filterState).redraw();
-    };
     doResize() {
-
         // Get the raw body element
         var body = document.body;
 
@@ -178,8 +140,7 @@ export class TimelineLine implements DoCheck, OnChanges {
 
         this.timeline.resize();
         this.timeline.redraw();
-    };
-
+    }
     delayResize() {
         if (undefined !== this.resizeTimer) {
             clearTimeout(this.resizeTimer);
@@ -191,5 +152,4 @@ export class TimelineLine implements DoCheck, OnChanges {
             this.delayResize();
         }
     }
-
 }

@@ -1,4 +1,4 @@
-import {Directive, ElementRef, Input, OnInit} from 'angular2/core';
+import {Directive, ElementRef, Input, OnInit, OnChanges, SimpleChange} from 'angular2/core';
 import {EventEmitterService} from '../../services/event-emitter-service.service';
 import * as d3 from 'd3';
 declare function sentio_chart_vertical_bars();
@@ -13,19 +13,34 @@ export class VerticalBarChart implements OnInit {
     private resizeHeight;
     private resizeTimer;
 
+    @Input() configureFn;
+    @Input() model;
     @Input() sentioResizeWidth;
     @Input() sentioResizeHeight;
-
-    private widthExtent = [0, undefined];
+    @Input() widthExtent;
 
     constructor(el: ElementRef) {
         this.chartElement = d3.select(el.nativeElement);
     }
+    ngAfterContentInit() {
+        if (null != this.configureFn) {
+            this.configureFn(this.chart);
+        }
+    }
+    ngOnChanges(changes: { [key: string]: SimpleChange }) {
+        if (!this.chart) return;
 
+        if (changes['model']) {
+            this.chart.data(changes['model'].currentValue).redraw();
+        }
+        if (changes['widthExtent']) {
+            this.chart.widthExtent().overrideValue(changes['widthExtent'].currentValue);
+        }
+    }
     ngOnInit() {
+        this.chart = sentio_chart_vertical_bars();
         this.resizeWidth = (null != this.sentioResizeWidth);
         this.resizeHeight = (null != this.sentioResizeHeight);
-        this.chart = sentio_chart_vertical_bars();
 
         // Extract the width of the chart
         var width = this.chartElement[0][0].style.width;
@@ -34,44 +49,10 @@ export class VerticalBarChart implements OnInit {
             if (null != width && !isNaN(width)) { this.chart.width(width); }
         }
 
-        this.chart.init(this.chartElement);
-        this.configureBarChart(this.chart);
-        this.chart.widthExtent().overrideValue(this.widthExtent);
-        this.doResize();
-        this.updateData();
-        EventEmitterService.get('updateData').subscribe(data => this.updateData());
         EventEmitterService.get('onResize').subscribe(event => this.onResize(event));
+        this.chart.init(this.chartElement);
+        EventEmitterService.get('chartInit').emit('done');
     }
-
-    configureBarChart(chart) {
-        chart.label(function(d) {
-            return d.key + '&lrm; (' + d.value + ')';
-        });
-    }
-
-    generateData(samples) {
-        var toReturn = [];
-        for (var i = 0; i < samples; i++) {
-            toReturn.push({
-                key: 'key:' + i,
-                value: Math.floor(Math.random() * samples)
-            });
-        }
-        return toReturn;
-    }
-
-    updateData() {
-        var data = this.generateData(16);
-
-        data = data.sort(function(a, b) {
-            return b.value - a.value;
-        }).slice(0, 12);
-
-        this.chart.data(data);
-        this.chart.redraw();
-
-    }
-
     doResize() {
 
         // Get the raw body element

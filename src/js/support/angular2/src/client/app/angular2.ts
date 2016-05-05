@@ -1,4 +1,4 @@
-import {Component, Output, EventEmitter} from 'angular2/core';
+import {Component, Output, EventEmitter, ViewEncapsulation} from 'angular2/core';
 import {RouteConfig, ROUTER_DIRECTIVES, ROUTER_PROVIDERS} from 'angular2/router';
 import {EventEmitterService} from './services/event-emitter-service.service';
 import {DonutComponent} from './routes/+donut/donut.component';
@@ -11,9 +11,10 @@ import {VerticalComponent} from './routes/+vertical/vertical.component';
     selector: 'angular2-app',
     providers: [ROUTER_PROVIDERS, EventEmitterService],
     templateUrl: 'angular2.html',
-    styleUrls: ['angular2.css','/css/sentio.css'],
+    styleUrls: ['angular2.css','../css/sentio.css'],
     directives: [ROUTER_DIRECTIVES],
-    pipes: []
+    pipes: [],
+    encapsulation: ViewEncapsulation.None
 })
 @RouteConfig([
     { path: '/donut', name: 'Donut', component: DonutComponent },

@@ -1,4 +1,4 @@
-import {Directive, ElementRef, Input, OnInit, DoCheck, OnChanges, SimpleChange} from 'angular2/core';
+import {Directive, ElementRef, Input, OnInit, OnChanges, SimpleChange, AfterContentInit} from 'angular2/core';
 import {EventEmitterService} from '../../services/event-emitter-service.service';
 import {Observable} from 'rxjs/Rx';
 import * as d3 from 'd3';
@@ -7,7 +7,7 @@ declare function sentio_realtime_timeline();
 @Directive({
     selector: 'realtime-timeline'
 })
-export class RealtimeTimeline implements DoCheck, OnChanges {
+export class RealtimeTimeline implements AfterContentInit, OnChanges, OnInit {
 
     private timeline;
     private timelineElement;
@@ -15,45 +15,55 @@ export class RealtimeTimeline implements DoCheck, OnChanges {
     private resizeHeight;
     private resizeTimer;
 
-    data = [];
-    private model = [];
-    private markers = [];
-    private interval = 30000;
-    private yExtent = [0, undefined];
-    private api = {};
-
-    @Input() delay: number = 0;
-    @Input() fps: number = 32;
-    @Input() markerLabel = '';
-    @Input() hoverText = '';
-
-    @Input() sentioResizeWidth: number;
-    @Input() sentioResizeHeight: number;
+    @Input() configureFn;
+    @Input() delay;
+    @Input() fps;
+    @Input() hoverText;
+    @Input() interval;
+    @Input() markerHover;
+    @Input() markerLabel;
+    @Input() markers;
+    @Input() model;
+    @Input() sentioResizeWidth;
+    @Input() sentioResizeHeight;
+    @Input() yExtent;
 
     constructor(el: ElementRef) {
         this.timelineElement = d3.select(el.nativeElement);
     }
-
-    ngDoCheck() {
-        this.timeline.data(this.model).redraw();
-    }
-
-    ngOnChanges(changes: { [key: string]: SimpleChange }) {
-        if (this.timeline) {
-            console.log(changes);
-            if (changes['fps']) {
-                this.timeline.fps(changes['fps'].currentValue).redraw();
-            }
-            if (changes['delay']) {
-                this.timeline.delay(changes['delay'].currentValue).redraw();
-            }
+    ngAfterContentInit() {
+        if (null != this.configureFn) {
+            this.configureFn(this.timeline);
+            this.timeline.redraw();
         }
     }
+    ngOnChanges(changes: { [key: string]: SimpleChange }) {
+        if (!this.timeline) return;
 
+        if (changes['fps']) {
+            this.timeline.fps(changes['fps'].currentValue).redraw();
+        }
+        if (changes['delay']) {
+            this.timeline.delay(changes['delay'].currentValue).redraw();
+        }
+        if (changes['model']) {
+            this.timeline.data(changes['model'].currentValue).redraw();
+        }
+        if (changes['markers']) {
+            this.timeline.markers(changes['markers'].currentValue).redraw();
+        }
+        if (changes['interval']) {
+            this.timeline.interval(changes['interval'].currentValue).redraw();
+        }
+        if (changes['yExtent']) {
+            this.timeline.yExtent().overrideValue(changes['yExtent'].currentValue);
+            this.timeline.redraw();
+        }
+    }
     ngOnInit() {
+        this.timeline = sentio_realtime_timeline();
         this.resizeWidth = (null != this.sentioResizeWidth);
         this.resizeHeight = (null != this.sentioResizeHeight);
-        this.timeline = sentio_realtime_timeline();
 
         // Extract the height and width of the chart
         var width = this.timelineElement[0][0].style.width;
@@ -67,45 +77,19 @@ export class RealtimeTimeline implements DoCheck, OnChanges {
             if (null != height && !isNaN(height)) { this.timeline.height(height); }
         }
 
-        this.timeline.init(this.timelineElement).data([]).start();
         // setup the marker callback method if one was provided
         if (null != this.markerHover) {
-        				this.timeline.markerHover(this.markerHover);
+            this.timeline.markerHover(this.markerHover);
         }
-
-        this.configure(this.timeline);
-        this.update();
 
         EventEmitterService.get('addMarker').subscribe(data => this.addMarker());
         EventEmitterService.get('doStart').subscribe(data => this.doStart());
         EventEmitterService.get('doStop').subscribe(data => this.doStop());
         EventEmitterService.get('onResize').subscribe(event => this.onResize(event));
+
+        this.timeline.init(this.timelineElement).data([]).start();
+        EventEmitterService.get('timelineInit').emit('done');
     }
-
-    configure(timeline) {
-        timeline.fps(this.fps);
-        timeline.delay(this.delay);
-        timeline.interval(this.interval);
-        timeline.yExtent().overrideValue(this.yExtent);
-        this.doResize();
-        timeline.redraw();
-    };
-
-    // Update the data and markers
-    update() {
-        var now = Math.floor(Date.now() / 1000) * 1000;
-        this.data.push([now, (now % 10000) / 1000]);
-        while (this.data.length > (this.interval + this.delay) / 1000 + 1) {
-            this.data.shift();
-        }
-        this.model = [{ key: 'series1', data: this.data }];
-
-        while (this.markers.length > 0 && this.markers[0][0] < Date.now() - this.interval - this.delay) {
-            this.markers.shift();
-        }
-        Observable.timer(1000).subscribe(() => this.update());
-    }
-
     // Add a marker
     addMarker() {
         var now = Date.now();
@@ -113,7 +97,6 @@ export class RealtimeTimeline implements DoCheck, OnChanges {
         this.timeline.markers(this.markers).redraw();
         this.markerLabel = '';
     }
-
     // Start and stop the timeline
     doStart() {
         this.timeline.start();
@@ -132,16 +115,7 @@ export class RealtimeTimeline implements DoCheck, OnChanges {
             this.delayResize();
         }
     }
-    /**
-     * Method invoked when a marker is hovered over
-     */
-    markerHover(payload) {
-        console.log('Hover Payload: ' + JSON.stringify(payload));
-        this.hoverText = JSON.stringify(payload);
-    }
-
     doResize() {
-
         // Get the raw body element
         var body = document.body;
 
@@ -170,5 +144,4 @@ export class RealtimeTimeline implements DoCheck, OnChanges {
 
         this.timeline.resize().redraw();
     }
-
 }

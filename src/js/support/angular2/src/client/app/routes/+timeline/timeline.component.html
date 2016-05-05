@@ -2,7 +2,12 @@
 <p>Angular 2 integrated D3 static timeline example</p>
 <timeline-line  (window:resize)="onResize($event)"
                 [style.height.px]="250"
-                [sentioResizeWidth]="0"
-                [sentioFilter]="true"></timeline-line>
+                [sentioResizeWidth]="true"
+                [model]="model"
+                [markers]="markers"
+                [yExtent]="yExtent"
+                [filterFn]="filter"
+                [filterState]="filterState"
+                [configureFn]="configure"></timeline-line>
 <button (click)="updateData()">Update Data</button>
 <button (click)="updateFilter()">Update Filter</button>

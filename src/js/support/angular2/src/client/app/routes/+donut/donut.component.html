@@ -4,6 +4,8 @@
         (window:resize)="onResize($event)"
         [style.width.px]="300"
         [style.height.px]="300"
-        [sentioResizeWidth]="0"
-        [sentioResizeHeight]="0"></donut-chart>
+        [configureFn]="configureDonutChart"
+        [model]="model"
+        [sentioResizeWidth]="true"
+        [sentioResizeHeight]="true"></donut-chart>
 <button (click)="updateData()">Update Data</button>

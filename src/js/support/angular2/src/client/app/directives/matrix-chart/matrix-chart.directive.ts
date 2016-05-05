@@ -1,83 +1,106 @@
-import {Directive, ElementRef, OnInit, Input} from 'angular2/core';
+import {Directive, ElementRef, OnInit, Input, OnChanges, SimpleChange, AfterContentInit} from 'angular2/core';
 import {EventEmitterService} from '../../services/event-emitter-service.service';
 import * as d3 from 'd3';
 declare function sentio_chart_matrix();
 
 @Directive({
-  selector: 'matrix-chart'
+    selector: 'matrix-chart'
 })
-export class MatrixChart {
+export class MatrixChart implements AfterContentInit, OnChanges, OnInit {
 
-  private chart;
-  private chartElement;
-  private resizeWidth;
-  private resizeHeight;
-  private resizeTimer;
+    private chart;
+    private chartElement;
+    private resizeWidth;
+    private resizeHeight;
+    private resizeTimer;
 
-  @Input() sentioResizeWidth;
-  @Input() sentioResizeHeight;
+    @Input() configureFn;
+    @Input() model;
+    @Input() sentioResizeWidth;
+    @Input() sentioResizeHeight;
 
-  constructor(el: ElementRef) {
-    this.chartElement = d3.select(el.nativeElement);
-  }
-
-  ngOnInit(){
-    this.chart = sentio_chart_matrix();
-
-    // Extract the width of the chart
-      var width = this.chartElement[0][0].style.width;
-      if(null != width && '' !== width) {
-        width = parseFloat(width.substring(0, width.length-2));
-        if(null != width && !isNaN(width)) {
-          this.chart.width(width);
-          // set height to match width in this case to keep the donut round
-          this.chart.height(width);
+    constructor(el: ElementRef) {
+        this.chartElement = d3.select(el.nativeElement);
+    }
+    ngAfterContentInit() {
+        if (null != this.configureFn) {
+            this.configureFn(this.chart);
         }
-      }
+    }
+    ngOnChanges(changes: { [key: string]: SimpleChange }) {
+        if (!this.chart) return;
 
-    this.chart.init(this.chartElement);
-    this.configure(this.chart);
-    this.updateData();
-    EventEmitterService.get('updateData').subscribe(data => this.updateData());
-  }
+        if (changes['model']) {
+            this.chart.data(changes['model'].currentValue).redraw();
+        }
+    }
+    ngOnInit() {
+        this.chart = sentio_chart_matrix();
+        // Extract the width of the chart
+        var width = this.chartElement[0][0].style.width;
+        if (null != width && '' !== width) {
+            width = parseFloat(width.substring(0, width.length - 2));
+            if (null != width && !isNaN(width)) {
+                this.chart.width(width);
+                // set height to match width in this case to keep the donut round
+                this.chart.height(width);
+            }
+        }
+        EventEmitterService.get('onResize').subscribe(event => this.onResize(event));
+        this.chart.init(this.chartElement);
+        EventEmitterService.get('chartInit').emit('done');
+    }
+    delayResize() {
+        if (undefined !== this.resizeTimer) {
+            clearTimeout(this.resizeTimer);
+        }
+        this.resizeTimer = setTimeout(() => this.doResize(), 200);
+    }
+    onResize(event) {
+        if (this.resizeWidth || this.resizeHeight) {
+            this.delayResize();
+        }
+    }
+    doResize() {
+        // Get the raw body element
+        var body = document.body;
 
-  configure(chart) {
-				chart.key(function(d, i) { return i; })
-					.value(function(d) { return d; })
-					.margin({ top: 20, right: 2, bottom: 2, left: 80 });
-			};
+        // Cache the old overflow style
+        var overflow = body.style.overflow;
+        body.style.overflow = 'hidden';
 
-			swap(i, j, arr) {
-				var t = arr[j];
-				arr[j] = arr[i];
-				arr[i] = t;
-			}
+        // Get the raw parent
+        var rawElement = this.chartElement[0][0].firstChild;
+        // Derive width of the parent (there are several ways to do this depending on the parent)
+        var parentWidth = rawElement.attributes.width | rawElement.style.width | rawElement.clientWidth;
 
-			updateData() {
+        // Calculate the new width based on the parent and the resize size
+        var width = (this.resizeWidth) ? parentWidth - this.sentioResizeWidth : undefined;
 
-				var data = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-				var series = [];
+        // Set height to match width to keep donut round
+        var height = width;
 
-				series.push({ key: 'increasing', label: 'Increasing', values: data.map(function(d, i) { return i; }) });
-				series.push({ key: 'decreasing', label: 'Decreasing', values: data.map(function(d, i, arr) { return arr.length - i - 1; }) });
-				series.push({ key: 'upAndDown', label: 'Up and Down', values: data.map(function(d, i, arr) { return arr.length/2 - Math.abs(-i + arr.length/2); }) });
-				series.push({ key: 'flatHigh', label: 'Flat High', values: data.map(function(d, i) { return 19; })});
-				series.push({ key: 'flatLow', label: 'Flat Low', values: data.map(function(d, i) { return 0; }) });
-				series.push({ key: 'flatMid', label: 'Flat Mid', values: data.map(function(d, i) { return 10; }) });
-				series.push({ key: 'spikeHigh', label: 'Spike High', values: data.map(function(d, i) { return (Math.random() > 0.1)? 1 : 19; }) });
-				series.push({ key: 'spikeLow', label: 'Spike Low', values:data.map(function(d, i) { return (Math.random() > 0.1)? 19 : 1; }) });
-				series.push({ key: 'random', label: 'random', values: data.map(function(d, i) { return Math.random() * 19; }) });
+        // Reapply the old overflow setting
+        body.style.overflow = overflow;
 
-				// Remove a couple things
-				series.splice(Math.floor(Math.random() * series.length), 1);
-				series.splice(Math.floor(Math.random() * series.length), 1);
+        // Get the old widths and heights
+        var oldHeight = this.chart.height();
+        var oldWidth = this.chart.width();
 
-				// Swap a couple things
-				this.swap(Math.floor(Math.random() * series.length), Math.floor(Math.random() * series.length), series);
-				this.swap(Math.floor(Math.random() * series.length), Math.floor(Math.random() * series.length), series);
+        if (height !== oldHeight || width !== oldWidth) {
+            console.debug('resize donut.chart width: ' + width);
+            console.debug('resize donut.chart height: ' + height);
 
-				this.chart.data(series);
-        this.chart.redraw();
-			};
-      
+            // Apply the new height
+            if (this.sentioResizeHeight) { this.chart.height(height); }
+            // Apply the new width
+            if (this.sentioResizeWidth) { this.chart.width(width); }
+            this.chart.resize();
+            this.chart.redraw();
+        }
+        else {
+            console.debug('resize donut.chart width unchanged: ' + width);
+            console.debug('resize donut.chart height unchanged: ' + height);
+        }
+    }
 }

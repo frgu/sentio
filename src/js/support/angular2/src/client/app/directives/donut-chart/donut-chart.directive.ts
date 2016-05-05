@@ -1,4 +1,4 @@
-import {Directive, ElementRef, Input, OnInit} from 'angular2/core';
+import {Directive, ElementRef, Input, OnInit, OnChanges, SimpleChange, AfterContentInit} from 'angular2/core';
 import {EventEmitterService} from '../../services/event-emitter-service.service';
 import * as d3 from 'd3';
 declare function sentio_chart_donut();
@@ -6,7 +6,7 @@ declare function sentio_chart_donut();
 @Directive({
     selector: 'donut-chart'
 })
-export class DonutChart implements OnInit {
+export class DonutChart implements AfterContentInit, OnChanges, OnInit {
 
     private chart;
     private chartElement;
@@ -14,17 +14,39 @@ export class DonutChart implements OnInit {
     private resizeHeight;
     private resizeTimer;
 
+    @Input() configureFn;
+    @Input() model;
+    @Input() duration;
+    @Input() colorScale;
     @Input() sentioResizeWidth;
     @Input() sentioResizeHeight;
 
     constructor(el: ElementRef) {
         this.chartElement = d3.select(el.nativeElement);
     }
+    ngAfterContentInit() {
+        if (null != this.configureFn) {
+            this.configureFn(this.chart);
+        }
+    }
+    ngOnChanges(changes: { [key: string]: SimpleChange }) {
+        if (!this.chart) return;
 
+        if (changes['model']) {
+            this.chart.data(changes['model'].currentValue).redraw();
+        }
+        if (changes['duration']) {
+            this.chart.duration(changes['duration'].currentValue);
+        }
+        if (changes['colorScale']) {
+            this.chart.duration(changes['colorScale'].currentValue, true);
+        }
+    }
     ngOnInit() {
+
+        this.chart = sentio_chart_donut();
         this.resizeWidth = (null != this.sentioResizeWidth);
         this.resizeHeight = (null != this.sentioResizeHeight);
-        this.chart = sentio_chart_donut();
 
         // Extract the width of the chart
         var width = this.chartElement[0][0].style.width;
@@ -36,42 +58,11 @@ export class DonutChart implements OnInit {
                 this.chart.height(width);
             }
         }
+        EventEmitterService.get('onResize').subscribe(event => this.onResize(event));
 
         this.chart.init(this.chartElement);
-        this.configureDonutChart(this.chart);
-        this.doResize();
-        this.updateData();
-        EventEmitterService.get('updateData').subscribe(data => this.updateData());
-        EventEmitterService.get('onResize').subscribe(event => this.onResize(event));
-    }
+        EventEmitterService.get('chartInit').emit('done');
 
-    configureDonutChart(chart) {
-        chart.label(function(d) {
-            return d.key + '(' + d.value + ')';
-        });
-
-        // Create custom color scale
-        var color = d3.scale.ordinal()
-            .range(['#a6cee3', '#1f78b4', '#b2df8a', '#33a02c']);
-
-        chart.color(color);
-    }
-
-    updateData() {
-        var data = [];
-        for (var i = 0; i < 4; i++) {
-            var d = {
-                key: 'key' + i,
-                value: Math.floor(Math.random() * 10)
-            };
-            if (i == 2) {
-                d.key = 'long test key'
-            }
-            data.push(d);
-        }
-
-        this.chart.data(data);
-        this.chart.redraw();
     }
 
     delayResize() {
@@ -85,7 +76,6 @@ export class DonutChart implements OnInit {
             this.delayResize();
         }
     }
-
     doResize() {
         // Get the raw body element
         var body = document.body;

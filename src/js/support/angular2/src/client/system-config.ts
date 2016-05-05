@@ -8,6 +8,7 @@ const barrels: string[] = [
   'app/routes/+matrix',
   'app/routes/+realtime',
   'app/routes/+timeline',
+  'app/sep/+sep-real',
   /** @cli-barrel */
 ];
 

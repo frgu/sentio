@@ -2,5 +2,7 @@
 <p>AngularJS integrated D3 vertical bar chart</p>
 <vertical-bar-chart
         (window:resize)="onResize($event)"
-        [style.width.px]="150"></vertical-bar-chart>
+        [style.width.px]="150"
+        [model]="model"
+        [widthExtent]="widthExtent"></vertical-bar-chart>
 <button (click)="updateData()">Update Data</button>
