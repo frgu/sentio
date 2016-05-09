@@ -6,13 +6,14 @@ declare function sentio_chart_donut();
 @Directive({
     selector: 'donut-chart'
 })
-export class DonutChart implements AfterContentInit, OnChanges, OnInit {
+export class DonutChart implements AfterContentInit, OnChanges {
 
     private chart;
     private chartElement;
     private resizeWidth;
     private resizeHeight;
     private resizeTimer;
+    private isInitialized: boolean = false;
 
     @Input() configureFn;
     @Input() model;
@@ -20,6 +21,7 @@ export class DonutChart implements AfterContentInit, OnChanges, OnInit {
     @Input() colorScale;
     @Input() sentioResizeWidth;
     @Input() sentioResizeHeight;
+    @Input() eventChannel: string;
 
     constructor(el: ElementRef) {
         this.chartElement = d3.select(el.nativeElement);
@@ -30,7 +32,9 @@ export class DonutChart implements AfterContentInit, OnChanges, OnInit {
         }
     }
     ngOnChanges(changes: { [key: string]: SimpleChange }) {
-        if (!this.chart) return;
+        if (!this.isInitialized) {
+            this._init();
+        }
 
         if (changes['model']) {
             this.chart.data(changes['model'].currentValue).redraw();
@@ -42,7 +46,7 @@ export class DonutChart implements AfterContentInit, OnChanges, OnInit {
             this.chart.duration(changes['colorScale'].currentValue, true);
         }
     }
-    ngOnInit() {
+    _init() {
 
         this.chart = sentio_chart_donut();
         this.resizeWidth = (null != this.sentioResizeWidth);
@@ -61,7 +65,7 @@ export class DonutChart implements AfterContentInit, OnChanges, OnInit {
         EventEmitterService.get('onResize').subscribe(event => this.onResize(event));
 
         this.chart.init(this.chartElement);
-        EventEmitterService.get('chartInit').emit('done');
+        EventEmitterService.get(this.eventChannel || 'chartInit').emit('done');
 
     }
 
@@ -84,8 +88,8 @@ export class DonutChart implements AfterContentInit, OnChanges, OnInit {
         var overflow = body.style.overflow;
         body.style.overflow = 'hidden';
 
-        // Get the raw parent
-        var rawElement = this.chartElement[0][0].firstChild;
+        // The first element child of our selector should be the <div> we injected
+        var rawElement = this.chartElement[0][0].firstElementChild;
         // Derive width of the parent (there are several ways to do this depending on the parent)
         var parentWidth = rawElement.attributes.width | rawElement.style.width | rawElement.clientWidth;
 

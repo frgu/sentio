@@ -7,13 +7,14 @@ declare function sentio_realtime_timeline();
 @Directive({
     selector: 'realtime-timeline'
 })
-export class RealtimeTimeline implements AfterContentInit, OnChanges, OnInit {
+export class RealtimeTimeline implements AfterContentInit, OnChanges {
 
     private timeline;
     private timelineElement;
     private resizeWidth;
     private resizeHeight;
     private resizeTimer;
+    private isInitialized: boolean = false;
 
     @Input() configureFn;
     @Input() delay;
@@ -27,6 +28,8 @@ export class RealtimeTimeline implements AfterContentInit, OnChanges, OnInit {
     @Input() sentioResizeWidth;
     @Input() sentioResizeHeight;
     @Input() yExtent;
+    @Input() xExtent;
+    @Input() eventChannel: string;
 
     constructor(el: ElementRef) {
         this.timelineElement = d3.select(el.nativeElement);
@@ -38,7 +41,9 @@ export class RealtimeTimeline implements AfterContentInit, OnChanges, OnInit {
         }
     }
     ngOnChanges(changes: { [key: string]: SimpleChange }) {
-        if (!this.timeline) return;
+        if (!this.isInitialized) {
+            this._init();
+        }
 
         if (changes['fps']) {
             this.timeline.fps(changes['fps'].currentValue).redraw();
@@ -59,8 +64,12 @@ export class RealtimeTimeline implements AfterContentInit, OnChanges, OnInit {
             this.timeline.yExtent().overrideValue(changes['yExtent'].currentValue);
             this.timeline.redraw();
         }
+        if (changes['xExtent']) {
+            this.timeline.xExtent().overrideValue(changes['xExtent'].currentValue);
+            this.timeline.redraw();
+        }
     }
-    ngOnInit() {
+    _init() {
         this.timeline = sentio_realtime_timeline();
         this.resizeWidth = (null != this.sentioResizeWidth);
         this.resizeHeight = (null != this.sentioResizeHeight);
@@ -88,7 +97,7 @@ export class RealtimeTimeline implements AfterContentInit, OnChanges, OnInit {
         EventEmitterService.get('onResize').subscribe(event => this.onResize(event));
 
         this.timeline.init(this.timelineElement).data([]).start();
-        EventEmitterService.get('timelineInit').emit('done');
+        EventEmitterService.get(this.eventChannel || 'timelineInit').emit('done');
     }
     // Add a marker
     addMarker() {
@@ -123,8 +132,8 @@ export class RealtimeTimeline implements AfterContentInit, OnChanges, OnInit {
         var overflow = body.style.overflow;
         body.style.overflow = 'hidden';
 
-        // Get the raw parent
-        var rawElement = this.timelineElement[0][0].firstChild;
+        // The first element child of our selector should be the <div> we injected
+        var rawElement = this.timelineElement[0][0].firstElementChild;
         // Derive height/width of the parent (there are several ways to do this depending on the parent)
         var parentWidth = rawElement.attributes.width | rawElement.style.width | rawElement.clientWidth;
         var parentHeight = rawElement.attributes.height | rawElement.style.height | rawElement.clientHeight;

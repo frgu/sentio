@@ -6,13 +6,14 @@ declare function sentio_timeline_line();
 @Directive({
     selector: 'timeline-line'
 })
-export class TimelineLine implements AfterContentInit ,OnChanges {
+export class TimelineLine implements AfterContentInit, OnChanges {
 
     private timeline;
     private timelineElement;
     private resizeWidth;
     private resizeHeight;
     private resizeTimer;
+    private isInitialized: boolean = false;
 
     @Input() configureFn;
     @Input() filterFn;
@@ -25,6 +26,8 @@ export class TimelineLine implements AfterContentInit ,OnChanges {
     @Input() sentioResizeWidth;
     @Input() sentioResizeHeight;
     @Input() yExtent;
+    @Input() xExtent;
+    @Input() eventChannel: string;
 
     constructor(el: ElementRef) {
         this.timelineElement = d3.select(el.nativeElement);
@@ -38,17 +41,19 @@ export class TimelineLine implements AfterContentInit ,OnChanges {
                 });
             });
         }
-        if(null != this.configureFn){
-          this.configureFn(this.timeline);
+        if (null != this.configureFn) {
+            this.configureFn(this.timeline);
         }
     }
     ngOnChanges(changes: { [key: string]: SimpleChange }) {
-        if (!this.timeline) return;
+        if (!this.isInitialized) {
+            this._init();
+        }
 
         if (changes['filterState']) {
             // If a filter was passed in and it is not the one we just set, do some updates
             if (null != changes['filterState'].currentValue
-            && JSON.stringify(changes['filterState'].currentValue) != JSON.stringify(changes['filterState'].previousValue)) {
+                && JSON.stringify(changes['filterState'].currentValue) != JSON.stringify(changes['filterState'].previousValue)) {
 
                 // If we're in the original format with 3 parameters, use the second two only
                 // TODO: We should go ahead and get rid of the 3 parameter style
@@ -60,7 +65,7 @@ export class TimelineLine implements AfterContentInit ,OnChanges {
                     this.filterState = changes['filterState'].currentValue.slice(1, 3);
                 }
                 this.timeline.setFilter(this.filterState);
-          			console.log({ msg: 'Watch Filter', filter: this.filterState });
+                console.log({ msg: 'Watch Filter', filter: this.filterState });
             }
         }
         if (changes['model']) {
@@ -84,7 +89,7 @@ export class TimelineLine implements AfterContentInit ,OnChanges {
             this.timeline.duration(changes['duration'].currentValue);
         }
     }
-    ngOnInit() {
+    _init() {
         this.timeline = sentio_timeline_line();
 
         this.resizeWidth = (null != this.sentioResizeWidth);
@@ -109,7 +114,7 @@ export class TimelineLine implements AfterContentInit ,OnChanges {
         EventEmitterService.get('onResize').subscribe(event => this.onResize(event));
 
         this.timeline.init(this.timelineElement);
-        EventEmitterService.get('timelineInit').emit('done');
+        EventEmitterService.get(this.eventChannel || 'timelineInit').emit('done');
     }
     doResize() {
         // Get the raw body element
@@ -119,8 +124,8 @@ export class TimelineLine implements AfterContentInit ,OnChanges {
         var overflow = body.style.overflow;
         body.style.overflow = 'hidden';
 
-        // Get the raw parent
-        var rawElement = this.timelineElement[0][0].firstChild;
+        // The first element child of our selector should be the <div> we injected
+        var rawElement = this.timelineElement[0][0].firstElementChild;
         // Derive height/width of the parent (there are several ways to do this depending on the parent)
         var parentWidth = rawElement.attributes.width | rawElement.style.width | rawElement.clientWidth;
         var parentHeight = rawElement.attributes.height | rawElement.style.height | rawElement.clientHeight;
