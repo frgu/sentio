@@ -42,7 +42,6 @@ export class TimelineLine implements  OnChanges {
         }
         if (changes['configureFn']) {
             changes['configureFn'].currentValue(this.timeline);
-            this.timeline.redraw();
         }
         if (changes['filterFn']) {
             this.timeline.filter().on('filterend', (fs) => {

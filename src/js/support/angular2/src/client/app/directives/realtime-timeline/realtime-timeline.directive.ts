@@ -41,7 +41,6 @@ export class RealtimeTimeline implements  OnChanges {
         }
         if (changes['configureFn']) {
             changes['configureFn'].currentValue(this.timeline);
-            this.timeline.redraw();
         }
         if (changes['fps']) {
             this.timeline.fps(changes['fps'].currentValue).redraw();

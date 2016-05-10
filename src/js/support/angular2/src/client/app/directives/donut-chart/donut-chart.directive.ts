@@ -34,7 +34,6 @@ export class DonutChart implements OnChanges {
 
         if (changes['configureFn']) {
             changes['configureFn'].currentValue(this.chart);
-            this.chart.redraw();
         }
         if (changes['model']) {
             this.chart.data(changes['model'].currentValue).redraw();
