@@ -34,6 +34,7 @@ export class DonutChart implements AfterContentInit, OnChanges {
     ngOnChanges(changes: { [key: string]: SimpleChange }) {
         if (!this.isInitialized) {
             this._init();
+            this.isInitialized = true;
         }
 
         if (changes['model']) {
