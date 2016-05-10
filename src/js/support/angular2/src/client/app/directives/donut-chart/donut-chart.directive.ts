@@ -1,4 +1,4 @@
-import {Directive, ElementRef, Input, OnInit, OnChanges, SimpleChange, AfterContentInit} from 'angular2/core';
+import {Directive, ElementRef, Input, OnChanges, SimpleChange} from 'angular2/core';
 import {EventEmitterService} from '../../services/event-emitter-service.service';
 import * as d3 from 'd3';
 declare function sentio_chart_donut();
@@ -6,7 +6,7 @@ declare function sentio_chart_donut();
 @Directive({
     selector: 'donut-chart'
 })
-export class DonutChart implements AfterContentInit, OnChanges {
+export class DonutChart implements OnChanges {
 
     private chart;
     private chartElement;
@@ -26,17 +26,16 @@ export class DonutChart implements AfterContentInit, OnChanges {
     constructor(el: ElementRef) {
         this.chartElement = d3.select(el.nativeElement);
     }
-    ngAfterContentInit() {
-        if (null != this.configureFn) {
-            this.configureFn(this.chart);
-        }
-    }
     ngOnChanges(changes: { [key: string]: SimpleChange }) {
         if (!this.isInitialized) {
             this._init();
             this.isInitialized = true;
         }
 
+        if (changes['configureFn']) {
+            changes['configureFn'].currentValue(this.chart);
+            this.chart.redraw();
+        }
         if (changes['model']) {
             this.chart.data(changes['model'].currentValue).redraw();
         }

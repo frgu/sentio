@@ -1,4 +1,4 @@
-import {Directive, ElementRef, Input, OnInit, OnChanges, SimpleChange, AfterContentInit} from 'angular2/core';
+import {Directive, ElementRef, Input, OnChanges, SimpleChange} from 'angular2/core';
 import {EventEmitterService} from '../../services/event-emitter-service.service';
 import * as d3 from 'd3';
 declare function sentio_timeline_line();
@@ -6,7 +6,7 @@ declare function sentio_timeline_line();
 @Directive({
     selector: 'timeline-line'
 })
-export class TimelineLine implements AfterContentInit, OnChanges {
+export class TimelineLine implements  OnChanges {
 
     private timeline;
     private timelineElement;
@@ -33,24 +33,25 @@ export class TimelineLine implements AfterContentInit, OnChanges {
         this.timelineElement = d3.select(el.nativeElement);
     }
     ngAfterContentInit() {
-        if (this.filterFn != null) {
-            this.timeline.filter().on('filterend', (fs) => {
-                setTimeout(() => {
-                    // Call the function callback
-                    this.filterFn(fs);
-                });
-            });
-        }
-        if (null != this.configureFn) {
-            this.configureFn(this.timeline);
-        }
+
     }
     ngOnChanges(changes: { [key: string]: SimpleChange }) {
         if (!this.isInitialized) {
             this._init();
             this.isInitialized = true;
         }
-
+        if (changes['configureFn']) {
+            changes['configureFn'].currentValue(this.timeline);
+            this.timeline.redraw();
+        }
+        if (changes['filterFn']) {
+            this.timeline.filter().on('filterend', (fs) => {
+                setTimeout(() => {
+                    // Call the function callback
+                    changes['filterFn'].currentValue(fs);
+                });
+            });
+        }
         if (changes['filterState']) {
             // If a filter was passed in and it is not the one we just set, do some updates
             if (null != changes['filterState'].currentValue
