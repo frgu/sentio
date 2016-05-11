@@ -1,4 +1,4 @@
-import {Directive, ElementRef, Input, OnChanges, SimpleChange} from 'angular2/core';
+import {Directive, ElementRef, Input, OnInit, OnChanges, SimpleChange, AfterContentInit} from 'angular2/core';
 import {EventEmitterService} from '../../services/event-emitter-service.service';
 import {Observable} from 'rxjs/Rx';
 import * as d3 from 'd3';
@@ -7,7 +7,7 @@ declare function sentio_realtime_timeline();
 @Directive({
     selector: 'realtime-timeline'
 })
-export class RealtimeTimeline implements  OnChanges {
+export class RealtimeTimeline implements AfterContentInit, OnChanges {
 
     private timeline;
     private timelineElement;
@@ -34,14 +34,17 @@ export class RealtimeTimeline implements  OnChanges {
     constructor(el: ElementRef) {
         this.timelineElement = d3.select(el.nativeElement);
     }
+    ngAfterContentInit() {
+        if (null != this.configureFn) {
+            this.configureFn(this.timeline);
+            this.timeline.redraw();
+        }
+    }
     ngOnChanges(changes: { [key: string]: SimpleChange }) {
         if (!this.isInitialized) {
             this._init();
-            this.isInitialized = true;
         }
-        if (changes['configureFn']) {
-            changes['configureFn'].currentValue(this.timeline);
-        }
+
         if (changes['fps']) {
             this.timeline.fps(changes['fps'].currentValue).redraw();
         }

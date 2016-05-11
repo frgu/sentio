@@ -1,12 +1,13 @@
-import {Directive, ElementRef, Input, OnChanges, SimpleChange} from 'angular2/core';
+import {Directive, ElementRef, Input, OnInit, OnChanges, SimpleChange, AfterContentInit, Output} from 'angular2/core';
 import {EventEmitterService} from '../../services/event-emitter-service.service';
 import * as d3 from 'd3';
+import {EventEmitter} from "angular2/core";
 declare function sentio_timeline_line();
 
 @Directive({
     selector: 'timeline-line'
 })
-export class TimelineLine implements  OnChanges {
+export class TimelineLine implements AfterContentInit, OnChanges {
 
     private timeline;
     private timelineElement;
@@ -29,6 +30,8 @@ export class TimelineLine implements  OnChanges {
     @Input() xExtent;
     @Input() eventChannel: string;
 
+    @Output() filterChanged: EventEmitter<any> = new EventEmitter();
+
     constructor(el: ElementRef) {
         this.timelineElement = d3.select(el.nativeElement);
     }
@@ -40,18 +43,9 @@ export class TimelineLine implements  OnChanges {
             this._init();
             this.isInitialized = true;
         }
-        if (changes['configureFn']) {
-            changes['configureFn'].currentValue(this.timeline);
-        }
-        if (changes['filterFn']) {
-            this.timeline.filter().on('filterend', (fs) => {
-                setTimeout(() => {
-                    // Call the function callback
-                    changes['filterFn'].currentValue(fs);
-                });
-            });
-        }
+
         if (changes['filterState']) {
+            let filterDisabled = false;
             // If a filter was passed in and it is not the one we just set, do some updates
             if (null != changes['filterState'].currentValue
                 && JSON.stringify(changes['filterState'].currentValue) != JSON.stringify(changes['filterState'].previousValue)) {
@@ -61,12 +55,15 @@ export class TimelineLine implements  OnChanges {
                 if (changes['filterState'].currentValue.length > 2) {
                     // The first element indicates if we're disabled
                     if (changes['filterState'].currentValue[0]) {
-                        return;
+                        filterDisabled = true;
+                    } else {
+                        this.filterState = changes['filterState'].currentValue.slice(1, 3);
                     }
-                    this.filterState = changes['filterState'].currentValue.slice(1, 3);
                 }
-                this.timeline.setFilter(this.filterState);
-                console.log({ msg: 'Watch Filter', filter: this.filterState });
+                if (!filterDisabled) {
+                    this.timeline.setFilter(this.filterState);
+                    console.log({ msg: 'Watch Filter', filter: this.filterState });
+                }
             }
         }
         if (changes['model']) {
@@ -106,6 +103,22 @@ export class TimelineLine implements  OnChanges {
             height = parseFloat(height.substring(0, height.length - 2));
             if (null != height && !isNaN(height)) { this.timeline.height(height); }
         }
+
+        if (null != this.configureFn) {
+            this.configureFn(this.timeline);
+        }
+
+        this.timeline.filter().on('filterend', fs => {
+            // Regular angular2 style
+            this.filterChanged.emit(fs);
+
+            setTimeout(() => {
+                // Call the function callback
+                if (undefined != this.filterFn) {
+                    this.filterFn(fs);
+                }
+            });
+        });
 
         // Check to see if filtering is enabled
         if (null != this.filterFn || this.filterState) {

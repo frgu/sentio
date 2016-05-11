@@ -1,4 +1,4 @@
-import {Directive, ElementRef, Input, OnChanges, SimpleChange} from 'angular2/core';
+import {Directive, ElementRef, OnInit, Input, OnChanges, SimpleChange, AfterContentInit} from 'angular2/core';
 import {EventEmitterService} from '../../services/event-emitter-service.service';
 import * as d3 from 'd3';
 declare function sentio_chart_matrix();
@@ -6,7 +6,7 @@ declare function sentio_chart_matrix();
 @Directive({
     selector: 'matrix-chart'
 })
-export class MatrixChart implements  OnChanges {
+export class MatrixChart implements AfterContentInit, OnChanges {
 
     private chart;
     private chartElement;
@@ -24,14 +24,19 @@ export class MatrixChart implements  OnChanges {
     constructor(el: ElementRef) {
         this.chartElement = d3.select(el.nativeElement);
     }
+    ngAfterContentInit() {
+
+    }
     ngOnChanges(changes: { [key: string]: SimpleChange }) {
         if (!this.isInitialized) {
             this._init();
             this.isInitialized = true;
         }
-        if (changes['configureFn']) {
-            changes['configureFn'].currentValue(this.chart);
+
+        if (null != this.configureFn) {
+            this.configureFn(this.chart);
         }
+
         if (changes['model']) {
             this.chart.data(changes['model'].currentValue).redraw();
         }
@@ -48,6 +53,7 @@ export class MatrixChart implements  OnChanges {
                 this.chart.height(width);
             }
         }
+
         EventEmitterService.get('onResize').subscribe(event => this.onResize(event));
         this.chart.init(this.chartElement);
         EventEmitterService.get(this.eventChannel || 'chartInit').emit('done');
