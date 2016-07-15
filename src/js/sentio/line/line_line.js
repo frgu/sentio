@@ -6,7 +6,7 @@ function sentio_line_line() {
 	var _id = 'line_line_' + Date.now();
 	// var _margin = { top: 20, right: 200, bottom: 50, left: 40 };
 
-	var _margin = { top: 20, right: 40, bottom: 50, left: 40 };
+	var _margin = { top: 20, right: 60, bottom: 50, left: 60 };
 	var _height = 100, _width = 800;
 
 	var lockYAxis = true;	// Set whether the Y axis will automatically change as data changes.
