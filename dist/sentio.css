@@ -133,6 +133,26 @@
 .sentio.matrix .series.label.active {
 	fill: red;
 }
+.node rect {
+  cursor: move;
+  fill-opacity: .9;
+  shape-rendering: crispEdges;
+}
+ 
+.node text {
+  pointer-events: none;
+  text-shadow: 0 1px 0 #fff;
+}
+ 
+.link {
+  fill: none;
+  stroke: #FFF;
+  stroke-opacity: .2;
+}
+ 
+.link:hover {
+  stroke-opacity: .5;
+}
 svg {
 	font: 10px sans-serif;
 }
@@ -174,27 +194,4 @@ svg {
 	stroke: #fff;
 	fill-opacity: .125;
 	shape-rendering: crispEdges;
-}
-
-
- 
-.node rect {
-  cursor: move;
-  fill-opacity: .9;
-  shape-rendering: crispEdges;
-}
- 
-.node text {
-  pointer-events: none;
-  text-shadow: 0 1px 0 #fff;
-}
- 
-.link {
-  fill: none;
-  stroke: #FFF;
-  stroke-opacity: .2;
-}
- 
-.link:hover {
-  stroke-opacity: .5;
 }

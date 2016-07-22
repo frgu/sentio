@@ -2331,7 +2331,7 @@ function sentio_line_line() {
 	// var _margin = { top: 20, right: 200, bottom: 50, left: 40 };
 
 	var _margin = { top: 20, right: 60, bottom: 50, left: 60 };
-	var _height = 100, _width = 800;
+	var _height = 500, _width = 800;
 
 	var lockYAxis = true;	// Set whether the Y axis will automatically change as data changes.
 	var lockedY = 1;		// Set default max Y axis value.
@@ -2341,6 +2341,7 @@ function sentio_line_line() {
 	// Values for tracking mouse movements on graph and selected elements.
 	var targetX;
 	var selected = {
+		time: 0,
 		points: [],
 		markers: []
 	};
@@ -2423,7 +2424,7 @@ function sentio_line_line() {
 		x: d3.time.scale(),
 		y: d3.scale.linear(),
 		color: d3.scale.category10(),
-		marker_color: d3.scale.category20()
+		marker_color: ['#2CA02C', '#98DF8A', '#9467BD', '#C5B0D5']
 	};
 
 	// Bisector for hover line
@@ -2534,7 +2535,7 @@ function sentio_line_line() {
 	 * Initialize the chart (should only call this once). Performs all initial chart
 	 * creation and setup
 	 */
-	_instance.init = function(container){
+	_instance.init = function(container) {
 		// Create a container div
 		_element.div = container.append('div').attr('class', 'sentio line');
 
@@ -2572,6 +2573,8 @@ function sentio_line_line() {
 				_element.g.hoverLine.style('display', 'block');
 			})
 			.on("mouseout", function () {
+				_element.g.markers.selectAll('.marker-line').transition().duration(100)
+					.attr('fill', function(d) { return _scale.marker_color[d[4]*2]; });
 				_element.g.hoverLine.style('display', 'none');
 				_element.tooltip.style("visibility", "hidden");
 			});
@@ -2651,7 +2654,36 @@ function sentio_line_line() {
 	 */
 	_instance.markers = function(v) {
 		if(!arguments.length) { return _markers.dispatch; }
-		_markers.values = v;
+		_markers.values = v.map(function(arr) { return arr.slice(); });
+
+		// Sort and parse markers for y levels
+		_markers.values.sort(function(a, b) {
+			var aWidth = _markerValue.end(a) - _markerValue.start(a);
+			var bWidth = _markerValue.end(b) - _markerValue.start(b);
+
+			return a[4] != b[4] ? a[4] - b[4] : bWidth - aWidth;
+		});
+
+		for (var i = 0; i < _markers.values.length; i++) {
+			if (i === 0) { 
+				_markers.values[0].push(0); 
+			} else {
+				var start = _markerValue.start(_markers.values[i]);
+				var end = _markerValue.end(_markers.values[i]);
+				var idx_conflict = -1;
+				for (var j = 0; j < i; j++) {
+					if (_markerValue.start(_markers.values[j]) <= end && _markerValue.end(_markers.values[j]) >= start) {
+						idx_conflict = j;
+					}
+				}
+				if (idx_conflict === -1) {
+					_markers.values[i].push(0);
+				} else {
+					_markers.values[i].push(_markers.values[idx_conflict][5] + 1);
+				}
+			}
+		}
+
 		return _instance;
 	};
 
@@ -2691,6 +2723,7 @@ function sentio_line_line() {
 		}
 	}
 
+
 	/*
 	 * Function to handle mouse movement on the graph and gather selected elements.
 	 *
@@ -2703,37 +2736,69 @@ function sentio_line_line() {
 		selected.points = [];
 		selected.markers = [];
 
+		// Calculate nearest point and 
 		/*jshint validthis: true */
 		var mouse = d3.mouse(this);
 		var mouseDate = _scale.x.invert(mouse[0]);
-		var targetX = mouse[0];
 		var index = bisectDate(_data[0].data, mouseDate); // Probably should store x axis info instead
+		var targetX = mouse[0];
+		var onPoint = false;
 
 		var d0 = _data[0].data[index - 1];
 		var d1 = _data[0].data[index];
 
 		if (!d1 || !d0) { return; }
-
 		var d = mouseDate - d0[0] > d1[0] - mouseDate ? d1 : d0;
 
 		// Callback function to check point time equality.
 		var pntEql = function(p) { return p[0] === d[0]; };
+		// Bind to a point when close enough to it.
+		if (Math.abs(mouse[0] - _scale.x(d[0])) < 5) { 
+			targetX = _scale.x(d[0]); 
+			onPoint = true;
+		}
+		// Detect markers using mouse coordinate instead of index.
+		var targetXDate = _scale.x.invert(targetX);
+		selected.time = targetXDate;
 
-		if (Math.abs(mouse[0] - _scale.x(d[0])) < 5) {
-			targetX = _scale.x(d[0]);
+		// End setup for mouse control
 
+		// Retrieve points when over the main graph.
+		if (onPoint && mouse[1] > 45) {
 			for (var i = 0; i < _data.length; i++) {
 				var pnt = _data[i].data.find(pntEql);
 				if (pnt) {
 					selected.points.push(pnt.concat([_data[i].key, _data[i].name]));
 				}
 			}
+		}
 
-			for (var j = 0; j < _markers.values.length; j++) {
-				if (d[0] >= _markers.values[j][2] && d[0] <= _markers.values[j][3]) {
-					selected.markers.push(_markers.values[j]);	
-				}
+		for (var j = _markers.values.length-1; j >= 0; j--) {
+			if (targetXDate >= _markers.values[j][2] && targetXDate <= _markers.values[j][3]) {
+				selected.markers.push(_markers.values[j]);	
 			}
+		}
+
+		var marker_default_fn = function(d) {
+			return _scale.marker_color[d[4]*2+1];
+		};
+
+		var marker_hover_fn = function(d) {
+			return _scale.marker_color[d[4]*2];
+		};
+
+		for (var k = 0; k < _markers.values.length; k++) {
+			var ret = selected.markers.find(markerFindFunction(_markerValue.slug(_markers.values[k])));
+			if (ret) {
+				_element.g.markers.select('.marker-line-'+_markerValue.slug(_markers.values[k])).transition().duration(100)
+					.attr('fill', marker_default_fn );
+			} else {
+				_element.g.markers.select('.marker-line-'+_markerValue.slug(_markers.values[k])).transition().duration(100)
+					.attr('fill', marker_hover_fn );
+			}
+		}
+
+		if (selected.points.length > 0 || (mouse[1] < 45 && selected.markers.length > 0)) {
 			_element.tooltip.html(invokeHoverCallback({d: selected}));
 			var tooltip_width = _element.tooltip.node().getBoundingClientRect().width;
 			_element.tooltip.style("top", (mouse[1]+10)+"px").style("left",(mouse[0]+40-(tooltip_width/2))+"px");
@@ -2747,6 +2812,12 @@ function sentio_line_line() {
 			.attr('x2', targetX);
 	}
 
+	var markerFindFunction = function(toFind) {
+		return function(selected) {
+			return toFind === _markerValue.slug(selected);
+		};
+	};
+
 	/*
 	 * Updates all the elements that depend on the size of the various components
 	 */
@@ -2755,11 +2826,11 @@ function sentio_line_line() {
 
 		// Set up the scales
 		_scale.x.range([0, Math.max(0, _width - _margin.left - _margin.right)]);
-		_scale.y.range([Math.max(0, _height - _margin.top - _margin.bottom), 0]);
+		_scale.y.range([Math.max(0, _height - _margin.top - _margin.bottom - 35), 0]); //Offset for marker space
 
 		// Update mouse capture elements
 		_element.g.mouseContainer
-			.attr('transform', 'translate(0, -' + _margin.top + ')')
+			.attr('transform', 'translate(0, -' + (_margin.top+25) + ')')	// Offset for marker container
 			.attr('width', Math.max(0, _width - _margin.left - _margin.right))
 			.attr('height', Math.max(0, _height - _margin.bottom));
 		_element.g.hoverLine
@@ -2771,9 +2842,9 @@ function sentio_line_line() {
 			.attr('width', Math.max(0, _width - _margin.left - _margin.right))
 			.attr('height', Math.max(0, _height - _margin.bottom));
 		_element.markerClipPath
-			.attr('transform', 'translate(-5, -' + (_margin.top - 5) + ')')
-			.attr('width', Math.max(0, _width - _margin.left - _margin.right + 10))
-			.attr('height', Math.max(0, _height - _margin.bottom + 5));
+			.attr('transform', 'translate(0, -' + (_margin.top + 25) + ')')
+			.attr('width', Math.max(0, _width - _margin.left - _margin.right))
+			.attr('height', 40);
 		_element.pointClipPath
 			.attr('transform', 'translate(-5, -' + (_margin.top - 5) + ')')
 			.attr('width', Math.max(0, _width - _margin.left - _margin.right + 10))
@@ -2787,7 +2858,7 @@ function sentio_line_line() {
 		_element.g.yAxis.attr('class', 'y axis');
 
 		// update the margins on the main draw group
-		_element.g.container.attr('transform', 'translate(' + _margin.left + ',' + _margin.top + ')');
+		_element.g.container.attr('transform', 'translate(' + _margin.left + ',' + (_margin.top + 25) + ')');
 
 		return _instance;
 	};
@@ -2801,6 +2872,11 @@ function sentio_line_line() {
 	 * Redraw the graphic
 	 */
 	_instance.redraw = function() {
+
+		if (!_data || _data.length === 0) {
+			return _instance;
+		}
+
 		// Need to grab the filter extent before we change anything
 		var filterExtent = getFilter();
 
@@ -2834,11 +2910,11 @@ function sentio_line_line() {
 		// Change tick type depending on concentration of ticks to prevent overlapping labels and compressed graphs
 		var concentration = _width / dayCount;
 		if (concentration > 35) { // One tick label is about 35 pixels wide.  Use day spans here.
-			_axis.x = _axis.x.innerTickSize(-_height+60).ticks(d3.time.day);
+			_axis.x = _axis.x.innerTickSize(-(_height - _margin.top - _margin.bottom - 35)).ticks(d3.time.day);
 		} else if (concentration > 5) { // Weeks are used when days would overlap
-			_axis.x = _axis.x.innerTickSize(-_height+60).ticks(d3.time.week);
+			_axis.x = _axis.x.innerTickSize(-(_height - _margin.top - _margin.bottom - 35)).ticks(d3.time.week);
 		} else {
-			_axis.x = _axis.x.innerTickSize(-_height+60).ticks(d3.time.month);
+			_axis.x = _axis.x.innerTickSize(-(_height - _margin.top - _margin.bottom - 35)).ticks(d3.time.month);
 		}
 		// Limit y axis ticks if max value is less than 10 to prevent decimal ticks.
 		_axis.y = _axis.y.innerTickSize(-_width+60).ticks(_scale.y.domain()[1] < 10 ? _scale.y.domain()[1] : 10);
@@ -2998,8 +3074,8 @@ function sentio_line_line() {
 	 * 	_marker = {
 	 *		values: 
 	 *			[
-	 *				['label1', 'slug_1', start_x1, end_x1],
-	 *				['label2', 'slug_2', start_x2, end_x2]
+	 *				['label1', 'slug_1', start_x1, end_x1, y_index],
+	 *				['label2', 'slug_2', start_x2, end_x2, y_index]
 	 *				...
 	 *			]
 	 *  }
@@ -3014,85 +3090,56 @@ function sentio_line_line() {
 
 		// Enter
 		var markerEnter = markerJoin.enter().append('g')
-			.attr('class', 'marker');
+			.attr('class', 'marker')
+			.attr('opacity', '1');
 
-		var areaEnter = markerEnter.append('rect');
-		var startEnter = markerEnter.append('line');
-		var endEnter = markerEnter.append('line');
-		var startPointEnter = markerEnter.append('circle');
-		var endPointEnter = markerEnter.append('circle');
+		var lineEnter = markerEnter.append('rect');
+		var startEnter = markerEnter.append('rect');
+		var endEnter = markerEnter.append('rect');
 
-		var areaUpdate = markerJoin.select('rect');
+		var lineUpdate = markerJoin.select('.marker-line');
 		var startUpdate = markerJoin.select('.start');
 		var endUpdate = markerJoin.select('.end');
-		var startPointUpdate = markerJoin.select('.start-ind');
-		var endPointUpdate = markerJoin.select('.end-ind');
-
-		startPointEnter
-			.attr('class', 'start-ind')
-			.attr('r', '3')
-			.attr('stroke', function(d, i) {return _scale.marker_color(i);})
-			.attr('stroke-opacity', '1')
-			.attr('stroke-width', '2')
-			.attr('fill', 'white')
-			.attr('fill-opacity', '0')
-			.attr('cx', function(d) { return _scale.x(_markerValue.start(d)); });
-
-		endPointEnter
-			.attr('class', 'end-ind')
-			.attr('r', '3')
-			.attr('stroke', function(d, i) {return _scale.marker_color(i);})
-			.attr('stroke-opacity', '1')
-			.attr('stroke-width', '2')
-			.attr('fill', 'white')
-			.attr('fill-opacity', '0')
-			.attr('cx', function(d) { return _scale.x(_markerValue.end(d)); });
 
 		startEnter
 			.attr('class', 'start')
-			.attr('y1', function(d) { return _scale.y.range()[1]; })
-			.attr('y2', function(d) { return _scale.y.range()[0]; })
-			.attr('stroke', function(d, i) {return _scale.marker_color(i);})
-			.attr('x1', function(d) { return _scale.x(_markerValue.start(d)); })
-			.attr('x2', function(d) { return _scale.x(_markerValue.start(d)); });
+			.attr('x', function(d) { return _scale.x(_markerValue.start(d)) - 2; })
+			.attr('y', function(d) { return (-10 - (5 * d[5]) - 2); })
+			.attr('width', '4')
+			.attr('height', '4')
+			.attr('fill', function(d) { return _scale.marker_color[d[4]*2]; });
 
 		endEnter
 			.attr('class', 'end')
-			.attr('x1', function(d) { return _scale.x(_markerValue.end(d)); })
-			.attr('x2', function(d) { return _scale.x(_markerValue.end(d)); })
-			.attr('y1', function(d) { return _scale.y.range()[1]; })
-			.attr('y2', function(d) { return _scale.y.range()[0]; })
-			.attr('stroke', function(d, i) {return _scale.marker_color(i);});
+			.attr('x', function(d) { return _scale.x(_markerValue.end(d)) - 2; })
+			.attr('y', function(d) { return (-10 - (5 * d[5]) - 2); })
+			.attr('width', '4')
+			.attr('height', '4')
+			.attr('fill', function(d) { return _scale.marker_color[d[4]*2]; });
 
-		areaEnter
-			.attr('y', '0')
+		lineEnter
+			.attr('class', function(d) { return 'marker-line-'+_markerValue.slug(d) + ' marker-line'; })
 			.attr('x', function(d) { return _scale.x(_markerValue.start(d)); })
-			.attr('width', function(d) { 
-				return _scale.x(_markerValue.end(d)) - _scale.x(_markerValue.start(d));
-			})
-			.attr('height', function(d) { return _scale.y.range()[0]; })
-			.attr('fill', function(d, i) {return _scale.marker_color(i);})
-			.attr('fill-opacity', '0.05');
+			.attr('y', function(d) { return (-10 - (5 * d[5]) - 1); })
+			.attr('width', function(d) { return _scale.x(_markerValue.end(d)) - _scale.x(_markerValue.start(d)); })
+			.attr('height', '2')
+			.attr('fill', function(d) { return _scale.marker_color[d[4]*2]; });
 
-		startPointUpdate.transition().duration(500)
-			.attr('cx', function(d) { return _scale.x(_markerValue.start(d)); });
+		startUpdate.transition()
+			.attr('x', function(d) { return _scale.x(_markerValue.start(d)) - 2; })
+			.attr('y', function(d) { return (-10 - (5 * d[5]) - 2); })
+			.attr('fill', function(d) { return _scale.marker_color[d[4]*2]; });
 
-		endPointUpdate.transition().duration(500)
-			.attr('cx', function(d) { return _scale.x(_markerValue.end(d)); });
+		endUpdate.transition()
+			.attr('x', function(d) { return _scale.x(_markerValue.end(d)) - 2; })
+			.attr('y', function(d) { return (-10 - (5 * d[5]) - 2); })
+			.attr('fill', function(d) { return _scale.marker_color[d[4]*2]; });
 
-		startUpdate.transition().duration(500)
-			.attr('x1', function(d) { return _scale.x(_markerValue.start(d)); })
-			.attr('x2', function(d) { return _scale.x(_markerValue.start(d)); });
-
-		endUpdate.transition().duration(500)
-			.attr('x1', function(d) { return _scale.x(_markerValue.end(d)); })
-			.attr('x2', function(d) { return _scale.x(_markerValue.end(d)); });
-
-		areaUpdate.transition().duration(500)
+		lineUpdate.transition()
 			.attr('x', function(d) { return _scale.x(_markerValue.start(d)); })
-			.attr('width', function(d) { 
-				return _scale.x(_markerValue.end(d)) - _scale.x(_markerValue.start(d));
-			});
+			.attr('y', function(d) { return (-10 - (5 * d[5]) - 1); })
+			.attr('fill', function(d) { return _scale.marker_color[d[4]*2]; })
+			.attr('width', function(d) { return _scale.x(_markerValue.end(d)) - _scale.x(_markerValue.start(d)); });
 
 		// Exit
 		var markerExit = markerJoin.exit().remove();
@@ -3350,444 +3397,338 @@ function sentio_line_line() {
 
 	return _instance;
 }
-
 var sentio_sankey = sentio.sankey = {};
 sentio.sankey.basic = sentio_sankey_basic;
 function sentio_sankey_basic() {
 	'use strict';
 
-	d3.sankey = function() {
-	  var sankey = {},
-	      nodeWidth = 24,
-	      nodePadding = 8,
-	      size = [1, 1],
-	      nodes = [],
-	      links = [];
-	 
-	  sankey.nodeWidth = function(_) {
-	    if (!arguments.length) return nodeWidth;
-	    nodeWidth = +_;
-	    return sankey;
-	  };
-	 
-	  sankey.nodePadding = function(_) {
-	    if (!arguments.length) return nodePadding;
-	    nodePadding = +_;
-	    return sankey;
-	  };
-	 
-	  sankey.nodes = function(_) {
-	    if (!arguments.length) return nodes;
-	    nodes = _;
-	    return sankey;
-	  };
-	 
-	  sankey.links = function(_) {
-	    if (!arguments.length) return links;
-	    links = _;
-	    return sankey;
-	  };
-	 
-	  sankey.size = function(_) {
-	    if (!arguments.length) return size;
-	    size = _;
-	    return sankey;
-	  };
-	 
-	  sankey.layout = function(iterations) {
-	    computeNodeLinks();
-	    computeNodeValues();
-	    computeNodeBreadths();
-	    computeNodeDepths(iterations);
-	    computeLinkDepths();
-	    return sankey;
-	  };
-	 
-	  sankey.relayout = function() {
-	    computeLinkDepths();
-	    return sankey;
-	  };
-	 
-	  sankey.link = function() {
-	    var curvature = .5;
-	 
-	    function link(d) {
-	      var x0 = d.source.x + d.source.dx,
-	          x1 = d.target.x,
-	          xi = d3.interpolateNumber(x0, x1),
-	          x2 = xi(curvature),
-	          x3 = xi(1 - curvature),
-	          y0 = d.source.y + d.sy + d.dy / 2,
-	          y1 = d.target.y + d.ty + d.dy / 2;
-	      return "M" + x0 + "," + y0
-	           + "C" + x2 + "," + y0
-	           + " " + x3 + "," + y1
-	           + " " + x1 + "," + y1;
-	    }
-	 
-	    link.curvature = function(_) {
-	      if (!arguments.length) return curvature;
-	      curvature = +_;
-	      return link;
-	    };
-	 
-	    return link;
-	  };
-	    var find_fn = function(target) {
-	    	return function(obj) {
-	    		return obj.name === target;
-	    	}
-	    };
-	 
-	  // Populate the sourceLinks and targetLinks for each node.
-	  // Also, if the source and target are not objects, assume they are indices.
-	  function computeNodeLinks() {
-	    nodes.forEach(function(node) {
-	      node.sourceLinks = [];
-	      node.targetLinks = [];
-	    });
-	    links.forEach(function(link) {
-	      var source = link.source,
-	          target = link.target;
-	      if (typeof source === "number") source = link.source = nodes[link.source];
-	      if (typeof target === "number") target = link.target = nodes[link.target];
-	      source.sourceLinks.push(link);
-	      target.targetLinks.push(link);
-	    });
-	  }
-	 
-	  // Compute the value (size) of each node by summing the associated links.
-	  function computeNodeValues() {
-	    nodes.forEach(function(node) {
-	      node.value = Math.max(
-	        d3.sum(node.sourceLinks, value),
-	        d3.sum(node.targetLinks, value)
-	      );
-	    });
-	  }
-	 
-	  // Iteratively assign the breadth (x-position) for each node.
-	  // Nodes are assigned the maximum breadth of incoming neighbors plus one;
-	  // nodes with no incoming links are assigned breadth zero, while
-	  // nodes with no outgoing links are assigned the maximum breadth.
-	  function computeNodeBreadths() {
-	    var remainingNodes = nodes,
-	        nextNodes,
-	        x = 0;
-	 
-	    while (remainingNodes.length) {
-	      nextNodes = [];
-	      remainingNodes.forEach(function(node) {
-	        node.x = x;
-	        node.dx = nodeWidth;
-	        node.sourceLinks.forEach(function(link) {
-	          nextNodes.push(link.target);
-	        });
-	      });
-	      remainingNodes = nextNodes;
-	      ++x;
-	    }
-	 
-	    //
-	    moveSinksRight(x);
-	    scaleNodeBreadths((size[0] - nodeWidth) / (x - 1));
-	  }
-	 
-	  function moveSourcesRight() {
-	    nodes.forEach(function(node) {
-	      if (!node.targetLinks.length) {
-	        node.x = d3.min(node.sourceLinks, function(d) { return d.target.x; }) - 1;
-	      }
-	    });
-	  }
-	 
-	  function moveSinksRight(x) {
-	    nodes.forEach(function(node) {
-	      if (!node.sourceLinks.length) {
-	        node.x = x - 1;
-	      }
-	    });
-	  }
-	 
-	  function scaleNodeBreadths(kx) {
-	    nodes.forEach(function(node) {
-	      node.x *= kx;
-	    });
-	  }
-	 
-	  function computeNodeDepths(iterations) {
-	    var nodesByBreadth = d3.nest()
-	        .key(function(d) { return d.x; })
-	        .sortKeys(d3.ascending)
-	        .entries(nodes)
-	        .map(function(d) { return d.values; });
-	 
-	    //
-	    initializeNodeDepth();
-	    resolveCollisions();
-	    for (var alpha = 1; iterations > 0; --iterations) {
-	      relaxRightToLeft(alpha *= .99);
-	      resolveCollisions();
-	      relaxLeftToRight(alpha);
-	      resolveCollisions();
-	    }
-	 
-	    function initializeNodeDepth() {
-	      var ky = d3.min(nodesByBreadth, function(nodes) {
-	        return (size[1] - (nodes.length - 1) * nodePadding) / d3.sum(nodes, value);
-	      });
-	 
-	      nodesByBreadth.forEach(function(nodes) {
-	        nodes.forEach(function(node, i) {
-	          node.y = i;
-	          node.dy = node.value * ky;
-	        });
-	      });
-	 
-	      links.forEach(function(link) {
-	        link.dy = link.value * ky;
-	      });
-	    }
-	 
-	    function relaxLeftToRight(alpha) {
-	      nodesByBreadth.forEach(function(nodes, breadth) {
-	        nodes.forEach(function(node) {
-	          if (node.targetLinks.length) {
-	            var y = d3.sum(node.targetLinks, weightedSource) / d3.sum(node.targetLinks, value);
-	            node.y += (y - center(node)) * alpha;
-	          }
-	        });
-	      });
-	 
-	      function weightedSource(link) {
-	        return center(link.source) * link.value;
-	      }
-	    }
-	 
-	    function relaxRightToLeft(alpha) {
-	      nodesByBreadth.slice().reverse().forEach(function(nodes) {
-	        nodes.forEach(function(node) {
-	          if (node.sourceLinks.length) {
-	            var y = d3.sum(node.sourceLinks, weightedTarget) / d3.sum(node.sourceLinks, value);
-	            node.y += (y - center(node)) * alpha;
-	          }
-	        });
-	      });
-	 
-	      function weightedTarget(link) {
-	        return center(link.target) * link.value;
-	      }
-	    }
-	 
-	    function resolveCollisions() {
-	      nodesByBreadth.forEach(function(nodes) {
-	        var node,
-	            dy,
-	            y0 = 0,
-	            n = nodes.length,
-	            i;
-	 
-	        // Push any overlapping nodes down.
-	        nodes.sort(ascendingDepth);
-	        for (i = 0; i < n; ++i) {
-	          node = nodes[i];
-	          dy = y0 - node.y;
-	          if (dy > 0) node.y += dy;
-	          y0 = node.y + node.dy + nodePadding;
-	        }
-	 
-	        // If the bottommost node goes outside the bounds, push it back up.
-	        dy = y0 - nodePadding - size[1];
-	        if (dy > 0) {
-	          y0 = node.y -= dy;
-	 
-	          // Push any overlapping nodes back up.
-	          for (i = n - 2; i >= 0; --i) {
-	            node = nodes[i];
-	            dy = node.y + node.dy + nodePadding - y0;
-	            if (dy > 0) node.y -= dy;
-	            y0 = node.y;
-	          }
-	        }
-	      });
-	    }
-	 
-	    function ascendingDepth(a, b) {
-	      return a.y - b.y;
-	    }
-	  }
-	 
-	  function computeLinkDepths() {
-	    nodes.forEach(function(node) {
-	      node.sourceLinks.sort(ascendingTargetDepth);
-	      node.targetLinks.sort(ascendingSourceDepth);
-	    });
-	    nodes.forEach(function(node) {
-	      var sy = 0, ty = 0;
-	      node.sourceLinks.forEach(function(link) {
-	        link.sy = sy;
-	        sy += link.dy;
-	      });
-	      node.targetLinks.forEach(function(link) {
-	        link.ty = ty;
-	        ty += link.dy;
-	      });
-	    });
-	 
-	    function ascendingSourceDepth(a, b) {
-	      return a.source.y - b.source.y;
-	    }
-	 
-	    function ascendingTargetDepth(a, b) {
-	      return a.target.y - b.target.y;
-	    }
-	  }
-	 
-	  function center(node) {
-	    return node.y + node.dy / 2;
-	  }
-	 
-	  function value(link) {
-	    return link.value;
-	  }
-	 
-	  return sankey;
+	var _id = 'sankey_basic_' + Date.now();
+
+	var _margin = {top: 40, right: 40, bottom: 40, left: 40};
+	var _width = 800, _height = _width / 2;
+	var _nodeWidth = 15, _nodePadding = 10;
+
+	var _nodeValue = {
+		name: function(n) { return n.name; },
+		value: function(n) { return n.value; }
 	};
 
-			function _instance(selection){}
+	var _linkValue = {
+		source: function(l) { return l.source; },
+		target: function(l) { return l.target; },
+		value: function(l) { return l.value; }
+	};
 
-			var _data = {};
-			var div, svg, units, formatNumber, format, sankey, path, color;
-			var margin, width, height;
+	var _scale = {
+		color: d3.scale.category20()
+	};
 
+	var _data = {
+		nodes: [],
+		links: []
+	};
 
+	var _nodeMap = {};
 
-	_instance.init = function(container){
-		units = "Widgets";
+	var _element = {
+		div: undefined,
+		svg: undefined,
+		g: {
+			nodes: undefined,
+			links: undefined
+		}
+	};
 
-		margin = {top: 40, right: 40, bottom: 40, left: 40};
-		width = 1500 - margin.left - margin.right;
-		height = 800 - margin.top - margin.bottom;
+	function _instance(selection){}
 
-		formatNumber = d3.format(",.0f"),
-	    format = function(d) { return formatNumber(d) + " TWh"; },
-	    color = d3.scale.category20();
+	_instance.init = function(container) {
+		_element.div = container.append('div').attr('class', 'sentio sankey');
 
-		sankey = d3.sankey()
-			.nodeWidth(15)
-			.nodePadding(10)
-			.size([width, height]);
+		_element.svg = _element.div.append('svg');
 
-		path = sankey.link();
-		
-		// Create a container div
-		div = container.append('div').attr('class', 'sentio sankey');
+		_element.g.container = _element.svg.append('g');
 
-		// Create the SVG element
-		svg = div.append('svg')
-    			.attr("width", width + margin.left + margin.right)
-    			.attr("height", height + margin.top + margin.bottom)
-  			.append("g")
-    			.attr("transform", 
-          				"translate(" + margin.left + "," + margin.top + ")");
+		_element.g.nodes = _element.g.container.append('g').attr('class', 'nodes');
+		_element.g.links = _element.g.container.append('g').attr('class', 'links');
 
+		_instance.resize();
 
+		return _instance;
+	};
+
+	_instance.resize = function() {
+		_element.svg.attr('width', _width).attr('height', _height);
+		_element.g.container.attr('transform', 'translate(' + _margin.left + ',' + _margin.top + ')');
+
+		return _instance;
+	};
+
+	/**
+	 * Helper functions
+	 */
+	
+	function center(node) {
+		return node.y + node.dy / 2;
+	}
+	
+	function computeNodeMap() {
+		_data.nodes.forEach(function(node) { _nodeMap[_nodeValue.name(node)] = node; });
+		_data.links = _data.links.map(function(link) {
+			return {
+				source: _nodeMap[_linkValue.source(link)],
+				target: _nodeMap[_linkValue.target(link)],
+				value: _linkValue.value(link)
+			};
+		});
+	}
+	
+	function computeNodeLinks() {
+		_data.nodes.forEach(function(node) {
+			node.sourceLinks = [];
+			node.targetLinks = [];
+		});
+		_data.links.forEach(function(link) {
+ 			_linkValue.source(link).sourceLinks.push(link);
+ 			_linkValue.target(link).targetLinks.push(link);
+		});
+	}
+
+	function computeNodeValues() {
+		_data.nodes.forEach(function(node) {
+			node.value = Math.max(
+				d3.sum(node.sourceLinks, _linkValue.value),
+				d3.sum(node.targetLinks, _linkValue.value)
+			);
+		});
+	}
+
+	function moveSinksRight(x) {
+		_data.nodes.forEach(function(node) {
+			if (!node.sourceLinks.length) {
+				node.x = x - 1;
+			}
+		});
+	}
+	function scaleNodeBreadths(v) {
+		_data.nodes.forEach(function(node) {
+			node.x *= v;
+		});
+	}
+	function computeNodeBreadths() {
+		var remainingNodes = _data.nodes,
+			nextNodes,
+			x = 0;
+
+		function nodeComputer(n) {
+			n.x = x;
+			n.dx = _nodeWidth;
+			n.sourceLinks.forEach(function(link) {
+				if (nextNodes.indexOf(_linkValue.target(link)) < 0) {
+					nextNodes.push(_linkValue.target(link));
+				}
+			});
+		}
+
+		while(remainingNodes.length) {
+			nextNodes = [];
+			remainingNodes.forEach(nodeComputer);
+			remainingNodes = nextNodes;
+			++x;
+		}
+
+		moveSinksRight(x);
+		scaleNodeBreadths((_width - _nodeWidth) / (x - 1));
+	}
+
+	function initializeNodeDepth(nodesByBreadth) {
+		var ky = d3.min(nodesByBreadth, function(nodes) {
+			return (_height - (nodes.length - 1) * _nodePadding) / d3.sum(nodes, _nodeValue.value);
+		});
+
+		nodesByBreadth.forEach(function(nodes) {
+			nodes.forEach(function(node, i) {
+				node.y = i;
+				node.dy = node.value * ky;
+			});
+		});
+		_data.links.forEach(function(link) {
+			link.dy = link.value * ky;
+		});
+	}
+	function ascendingDepth(a, b) { return a.y - b.y; }
+	function resolveCollisions(nodesByBreadth) {
+		nodesByBreadth.forEach(function(nodes) {
+			var node, dy, y0 = 0, n = nodes.length, i;
+
+			nodes.sort(ascendingDepth);
+			for (i = 0; i < n; i++) {
+				node = nodes[i];
+				dy = y0 - node.y;
+				if (dy > 0) node.y += dy;
+				y0 = node.y + node.dy + _nodePadding;
+			}
+
+			dy = y0 - _nodePadding - _height;
+			if (dy > 0) {
+				y0 = node.y -= dy;
+
+				for (i = n-2; i >= 0; i--) {
+					node = nodes[i];
+					dy = node.y + node.dy + _nodePadding - y0;
+					if (dy > 0) node.y -= dy;
+					y0 = node.y;
+				}
+			}
+		});
+	}
+	function relaxRightToLeft(nodesByBreadth, alpha) {
+		nodesByBreadth.slice().reverse().forEach(function(nodes) {
+			nodes.forEach(function(node) {
+				if (node.sourceLinks.length) {
+					var y = d3.sum(node.sourceLinks, weightedTarget) / d3.sum(node.sourceLinks, _linkValue.value);
+					node.y += (y - center(node)) * alpha;
+				}
+			});
+		});
+
+		function weightedTarget(link) {
+			return center(_linkValue.target(link) * _linkValue.value(link));
+		}
+	}
+	function relaxLeftToRight(nodesByBreadth, alpha) {
+		nodesByBreadth.forEach(function(nodes, breadth) {
+			nodes.forEach(function(node) {
+				if (node.targetLinks.length) {
+					var y = d3.sum(node.targetLinks, weightedSource) / d3.sum(node.targetLinks, _linkValue.value);
+					node.y += (y - center(node)) * alpha;
+				}
+			});
+		});
+
+		function weightedSource(link) {
+			return center(_linkValue.source(link) * _linkValue.value(link));
+		}
+	}
+	function computeNodeDepths(iterations) {
+		var nodesByBreadth = d3.nest()
+			.key(function(d) { return d.x; })
+			.sortKeys(d3.ascending)
+			.entries(_data.nodes)
+			.map(function(d) { return d.values; });
+			console.log(nodesByBreadth);
+
+		initializeNodeDepth(nodesByBreadth);
+		resolveCollisions(nodesByBreadth);
+
+		for (var alpha = 1; iterations > 0; iterations--) {
+			relaxRightToLeft(nodesByBreadth, alpha *= 0.99);
+			resolveCollisions(nodesByBreadth);
+			relaxLeftToRight(nodesByBreadth, alpha);
+			resolveCollisions(nodesByBreadth);
+		}
+	}
+	
+	function computeLinkDepths() {
+		_data.nodes.forEach(function(node) {
+			node.sourceLinks.sort(ascendingTargetDepth);
+			node.targetLinks.sort(ascendingSourceDepth);
+		});
+
+		_data.nodes.forEach(function(node) {
+			var sy = 0, ty = 0;
+			node.sourceLinks.forEach(function(link) {
+				link.sy = sy;
+				sy += link.dy;
+			});
+			node.targetLinks.forEach(function(link) {
+				link.ty = ty;
+				ty += link.dy;
+			});
+		});
+
+		function ascendingTargetDepth(a, b) {
+			return a.target.y - b.target.y;
+		}
+
+		function ascendingSourceDepth(a, b) {
+			return a.source.y - b.source.y;
+		}
+	}
+
+	function reposition() {
+		computeNodeMap();
+		computeNodeLinks();
+		computeNodeValues();
+		computeNodeBreadths();
+		computeNodeDepths(32);
+		computeLinkDepths();
+	}
+
+	_instance.model = function(v) {
+		if(!arguments.length) { return _data; }
+		console.log('here');
+		_data.nodes = v.nodes.slice(0);
+		_data.links = v.links.slice(0);
+
+		reposition();
+		console.log(_data);
 
 		return _instance;
 	};
 
 
+	_instance.redraw = function() {
+		updateLinks();
+		updateNodes();
 
-			_instance.model = function(v) {
-				if(!arguments.length) { return _data; }
-				_data = JSON.parse(JSON.stringify(v));
-				console.log(v);
+		return _instance;
+	};
+	var curvature = 0.5;
+	var path = function(d) {
+		var x0 = d.source.x + d.source.dx,
+			x1 = d.target.x,
+			xi = d3.interpolateNumber(x0, x1),
+			x2 = xi(curvature),
+			x3 = xi(1 - curvature),
+			y0 = d.source.y + d.sy + d.dy / 2,
+			y1 = d.target.y + d.ty + d.dy / 2;
 
+		return 'M' + x0 + ',' + y0 + 
+			   'C' + x2 + ',' + y0 +
+			   ' ' + x3 + ',' + y1 +
+			   ' ' + x1 + ',' + y1;
+	};
 
-	var nodeMap = {};
-    _data.nodes.forEach(function(x) { nodeMap[x.name] = x; });
-    _data.links = _data.links.map(function(x) {
-      return {
-        source: nodeMap[x.source],
-        target: nodeMap[x.target],
-        value: x.value
-      };
-    });
- 
-  sankey
-      .nodes(_data.nodes)
-      .links(_data.links)
-      .layout(32);
- 
-// add in the links
-  var link = svg.append("g").selectAll(".link")
-      .data(_data.links)
-    .enter().append("path")
-      .attr("class", "link")
-      .attr("d", path)
-      .style("stroke-width", function(d) { return Math.max(1, d.dy); })
-      .sort(function(a, b) { return b.dy - a.dy; });
- 
-// add the link titles
-  link.append("title")
-        .text(function(d) {
-      	return d.source.name + " → " + 
-                d.target.name + "\n" + format(d.value); });
- 
-// add in the nodes
-  var node = svg.append("g").selectAll(".node")
-      .data(_data.nodes)
-    .enter().append("g")
-      .attr("class", "node")
-      .attr("transform", function(d) { 
-		  return "translate(" + d.x + "," + d.y + ")"; })
-    .call(d3.behavior.drag()
-      .origin(function(d) { return d; })
-      .on("dragstart", function() { 
-		  this.parentNode.appendChild(this); })
-      .on("drag", dragmove));
- 
-// add the rectangles for the nodes
-  node.append("rect")
-      .attr("height", function(d) { return d.dy; })
-      .attr("width", sankey.nodeWidth())
-      .style("fill", function(d) { 
-		  return d.color = color(d.name.replace(/ .*/, "")); })
-      .style("stroke", function(d) { 
-		  return d3.rgb(d.color).darker(2); })
-    .append("title")
-      .text(function(d) { 
-		  return d.name + "\n" + format(d.value); });
- 
-// add in the title for the nodes
-  node.append("text")
-      .attr("x", -6)
-      .attr("y", function(d) { return d.dy / 2; })
-      .attr("dy", ".35em")
-      .attr("text-anchor", "end")
-      .attr("transform", null)
-      .text(function(d) { return d.name; })
-    .filter(function(d) { return d.x < width / 2; })
-      .attr("x", 6 + sankey.nodeWidth())
-      .attr("text-anchor", "start");
- 
-// the function for moving the nodes
-  function dragmove(d) {
-    d3.select(this).attr("transform", 
-        "translate(" + (
-        	   d.x = Math.max(0, Math.min(width - d.dx, d3.event.x))
-        	) + "," + (
-                   d.y = Math.max(0, Math.min(height - d.dy, d3.event.y))
-            ) + ")");
-    sankey.relayout();
-    link.attr("d", path);
-  }
+	function updateLinks() {
+		var link = _element.g.links.selectAll('.link')
+				.data(_data.links)
+			.enter().append('path')
+				.attr('class', 'link')
+				.attr('d', path)
+				.style('stroke-width', function(d) { return Math.max(1, d.dy); })
+				.sort(function(a, b) { return b.dy - a.dy; });
+	}
+
+	function updateNodes() {
+		var node = _element.g.nodes.selectAll('.node')
+				.data(_data.nodes)
+			.enter().append('g')
+				.attr('class', 'node')
+				.attr('transform', function(d) { return 'translate('+d.x+','+d.y+')'; });
 
 
 
-			} ;
+			node.append('rect')
+				.attr('height', function(d) { return d.dy; })
+				.attr('width', _nodeWidth)
+				.style('fill', function(d) { 
+					d.color = _scale.color(d.name.replace(/ .*/, '')); 
+					return d.color;
+				})
+				.style('stroke', function(d) { return d3.rgb(d.color).darker(2); });
 
-
+	}
 
 	return _instance;
+
 }
