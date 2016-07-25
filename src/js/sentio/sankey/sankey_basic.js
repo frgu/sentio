@@ -5,7 +5,7 @@ function sentio_sankey_basic() {
 	var _id = 'sankey_basic_' + Date.now();
 
 	var _margin = {top: 40, right: 40, bottom: 40, left: 40};
-	var _width = 800, _height = _width / 2;
+	var _width = 1500, _height = _width / 2;
 	var _nodeWidth = 15, _nodePadding = 10;
 
 	var _nodeValue = {
@@ -39,6 +39,23 @@ function sentio_sankey_basic() {
 		}
 	};
 
+	var _curvature = 0.5;
+
+	var _path = function(d) {
+		var x0 = d.source.x + d.source.dx,
+			x1 = d.target.x,
+			xi = d3.interpolateNumber(x0, x1),
+			x2 = xi(_curvature),
+			x3 = xi(1 - _curvature),
+			y0 = d.source.y + d.sy + d.dy / 2,
+			y1 = d.target.y + d.ty + d.dy / 2;
+
+		return 'M' + x0 + ',' + y0 + 
+			   'C' + x2 + ',' + y0 +
+			   ' ' + x3 + ',' + y1 +
+			   ' ' + x1 + ',' + y1;
+	};
+
 	function _instance(selection){}
 
 	_instance.init = function(container) {
@@ -58,7 +75,6 @@ function sentio_sankey_basic() {
 
 	_instance.resize = function() {
 		_element.svg.attr('width', _width).attr('height', _height);
-		_element.g.container.attr('transform', 'translate(' + _margin.left + ',' + _margin.top + ')');
 
 		return _instance;
 	};
@@ -161,7 +177,7 @@ function sentio_sankey_basic() {
 			var node, dy, y0 = 0, n = nodes.length, i;
 
 			nodes.sort(ascendingDepth);
-			for (i = 0; i < n; i++) {
+			for (i = 0; i < n; ++i) {
 				node = nodes[i];
 				dy = y0 - node.y;
 				if (dy > 0) node.y += dy;
@@ -172,7 +188,7 @@ function sentio_sankey_basic() {
 			if (dy > 0) {
 				y0 = node.y -= dy;
 
-				for (i = n-2; i >= 0; i--) {
+				for (i = n-2; i >= 0; --i) {
 					node = nodes[i];
 					dy = node.y + node.dy + _nodePadding - y0;
 					if (dy > 0) node.y -= dy;
@@ -215,7 +231,6 @@ function sentio_sankey_basic() {
 			.sortKeys(d3.ascending)
 			.entries(_data.nodes)
 			.map(function(d) { return d.values; });
-			console.log(nodesByBreadth);
 
 		initializeNodeDepth(nodesByBreadth);
 		resolveCollisions(nodesByBreadth);
@@ -266,59 +281,70 @@ function sentio_sankey_basic() {
 
 	_instance.model = function(v) {
 		if(!arguments.length) { return _data; }
-		console.log('here');
 		_data.nodes = v.nodes.slice(0);
 		_data.links = v.links.slice(0);
 
-		reposition();
 		console.log(_data);
 
 		return _instance;
 	};
 
+	function stripPositioning() {
+		
+		_nodeMap = {};
+		_data.nodes = _data.nodes.map(function(node) {
+			return {name: node.name};
+		});
+
+		_data.links = _data.links.map(function(link) {
+			var ret;
+			if (typeof link.source === 'string') {
+				ret = {source: link.source, target: link.target, value: link.value};
+			} else {
+				ret = {source: link.source.name, target: link.target.name, value: link.value};
+			}
+			return ret;
+		});
+	}
 
 	_instance.redraw = function() {
+		stripPositioning();
+		reposition();
+		
 		updateLinks();
 		updateNodes();
 
 		return _instance;
 	};
-	var curvature = 0.5;
-	var path = function(d) {
-		var x0 = d.source.x + d.source.dx,
-			x1 = d.target.x,
-			xi = d3.interpolateNumber(x0, x1),
-			x2 = xi(curvature),
-			x3 = xi(1 - curvature),
-			y0 = d.source.y + d.sy + d.dy / 2,
-			y1 = d.target.y + d.ty + d.dy / 2;
-
-		return 'M' + x0 + ',' + y0 + 
-			   'C' + x2 + ',' + y0 +
-			   ' ' + x3 + ',' + y1 +
-			   ' ' + x1 + ',' + y1;
-	};
 
 	function updateLinks() {
-		var link = _element.g.links.selectAll('.link')
-				.data(_data.links)
-			.enter().append('path')
+		var linkJoin = _element.g.links.selectAll('.link')
+				.data(_data.links, function(d) { return ''+d.source.name+','+d.target.name; });
+
+		linkJoin.enter().append('path')
 				.attr('class', 'link')
-				.attr('d', path)
+				.attr('d', _path)
 				.style('stroke-width', function(d) { return Math.max(1, d.dy); })
 				.sort(function(a, b) { return b.dy - a.dy; });
+
+
+		linkJoin.transition()
+				.attr('d', _path)
+				.style('stroke-width', function(d) { return Math.max(1, d.dy); })
+				.sort(function(a, b) { return b.dy - a.dy; });
+
+		linkJoin.exit().remove();
 	}
 
 	function updateNodes() {
-		var node = _element.g.nodes.selectAll('.node')
-				.data(_data.nodes)
-			.enter().append('g')
+
+		var nodeJoin = _element.g.nodes.selectAll('.node')
+			.data(_data.nodes, function(d) { return d.name; });
+
+		nodeJoin.enter().append('rect')
 				.attr('class', 'node')
-				.attr('transform', function(d) { return 'translate('+d.x+','+d.y+')'; });
-
-
-
-			node.append('rect')
+				.attr('x', function(d) { return d.x; })
+				.attr('y', function(d) { return d.y; })
 				.attr('height', function(d) { return d.dy; })
 				.attr('width', _nodeWidth)
 				.style('fill', function(d) { 
@@ -327,8 +353,21 @@ function sentio_sankey_basic() {
 				})
 				.style('stroke', function(d) { return d3.rgb(d.color).darker(2); });
 
+		nodeJoin.transition()
+				.attr('x', function(d) { return d.x; })
+				.attr('y', function(d) { return d.y; })
+				.attr('height', function(d) { return d.dy; });
+
+		nodeJoin.exit().remove();
+
 	}
 
-	return _instance;
+	_instance.width = function(v){
+		if(!arguments.length) { return _width; }
+		_width = v;
+		_height = v/2;
+		return _instance;
+	};
 
+	return _instance;
 }
