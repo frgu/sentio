@@ -587,7 +587,8 @@ function($document, $window, $timeout, $log) {'use strict';
 		restrict : 'A',
 		scope : {
 			model: '=sentioModel',
-			resizeWidth: '@sentioResizeWidth'
+			resizeWidth: '@sentioResizeWidth',
+			configureFn: '&sentioConfigureFn'
 		},
 		replace : false,
 		link : function(scope, element, attrs, controller) {
@@ -596,10 +597,16 @@ function($document, $window, $timeout, $log) {'use strict';
 
 			sankey.init(sankeyElement);
 
-			scope.$watchCollection('model', function(n, o){
+			scope.$watch('model', function(n, o){
 				if(null == o && null == n){ return; }
 				sankey.model(n);
 				sankey.redraw();
+			}, true);
+
+			scope.$watch('configureFn', function(n, o){
+				if(null != scope.configureFn){
+					scope.configureFn({ sankey: sankey });
+				}
 			});
 
 			// Manage resizing the chart
