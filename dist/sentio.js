@@ -3441,15 +3441,6 @@ function sentio_sankey_basic() {
 		}
 	};
 
-	function slugify(text) {
-		return text.toLowerCase()
-			.replace(/\s+/g, '-')           // Replace spaces with -
-			.replace(/[^\w\-]+/g, '')       // Remove all non-word chars
-			.replace(/\-\-+/g, '-')         // Replace multiple - with single -
-			.replace(/^-+/, '')             // Trim - from start of text
-			.replace(/-+$/, '');            // Trim - from end of text
-	}
-
 	var _curvature = 0.5;
 
 	var _path = function(d) {
@@ -3497,7 +3488,7 @@ function sentio_sankey_basic() {
 	function center(node) {
 		return node.y + node.dy / 2;
 	}
-	
+
 	function computeNodeMap() {
 		_data.nodes.forEach(function(node) { _nodeMap[_nodeValue.name(node)] = node; });
 		_data.links = _data.links.map(function(link) {
@@ -3508,7 +3499,7 @@ function sentio_sankey_basic() {
 			};
 		});
 	}
-	
+
 	function computeNodeLinks() {
 		_data.nodes.forEach(function(node) {
 			node.sourceLinks = [];
@@ -3681,29 +3672,41 @@ function sentio_sankey_basic() {
 		}
 	}
 
-	function reposition() {
-		computeNodeMap();
-		computeNodeLinks();
-		computeNodeValues();
-		computeNodeBreadths();
-		computeNodeDepths(32);
-		computeLinkDepths();
-	}
-
 	function nodeClicked(d) {
 		_data.dispatch.onclick(d);
 	}
 
+	function deepClone(obj) {
+	    var copy;
+
+	    // Handle the 3 simple types, and null or undefined
+	    if (null == obj || "object" != typeof obj) return obj;
+
+	    // Handle Array
+	    if (obj instanceof Array) {
+	        copy = [];
+	        for (var i = 0, len = obj.length; i < len; i++) {
+	            copy[i] = deepClone(obj[i]);
+	        }
+	        return copy;
+	    }
+
+	    // Handle Object
+	    if (obj instanceof Object) {
+	        copy = {};
+	        for (var attr in obj) {
+	            if (obj.hasOwnProperty(attr)) copy[attr] = deepClone(obj[attr]);
+	        }
+	        return copy;
+	    }
+
+	    throw new Error("Unable to copy obj! Its type isn't supported.");
+	}
+
 	_instance.model = function(v) {
 		if(!arguments.length) { return _data.dispatch; }
-		_data.nodes = v.nodes.map(function(node) {
-			return {name: node.name, slug: slugify(node.name)};
-		});
-		_data.links = v.links.slice(0);
-
-		computeNodeMap();
-		computeNodeLinks();
-		computeNodeValues();
+		_data.nodes = deepClone(v.nodes);
+		_data.links = deepClone(v.links);
 
 		console.log(_data);
 
@@ -3712,12 +3715,17 @@ function sentio_sankey_basic() {
 
 	_instance.redraw = function() {
 
+		computeNodeMap();
+		computeNodeLinks();
+		computeNodeValues();
 		computeNodeBreadths();
 		computeNodeDepths(32);
 		computeLinkDepths();
 
-		updateLinks();
-		updateNodes();
+		if (_width > 0) {
+			updateLinks();
+			updateNodes();
+		}
 
 		return _instance;
 	};

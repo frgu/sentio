@@ -588,7 +588,7 @@ function($document, $window, $timeout, $log) {'use strict';
 		scope : {
 			model: '=sentioModel',
 			resizeWidth: '@sentioResizeWidth',
-			configureFn: '&sentioConfigureFn'
+			configureFn: '&sentioConfigureFn',
 		},
 		replace : false,
 		link : function(scope, element, attrs, controller) {
@@ -597,11 +597,11 @@ function($document, $window, $timeout, $log) {'use strict';
 
 			sankey.init(sankeyElement);
 
-			scope.$watch('model', function(n, o){
+			scope.$watchCollection('model', function(n, o){
 				if(null == o && null == n){ return; }
 				sankey.model(n);
 				sankey.redraw();
-			}, true);
+			});
 
 			scope.$watch('configureFn', function(n, o){
 				if(null != scope.configureFn){
