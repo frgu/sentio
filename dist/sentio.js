@@ -3458,6 +3458,43 @@ function sentio_sankey_basic() {
 			   ' ' + x1 + ',' + y1;
 	};
 
+	var _textPositionHandler = function(d) {
+		var ret = d.x + (d.dx / 2) - (this.getComputedTextLength() / 2);
+		if (d.targetLinks.length === 0) {
+			ret = d.x + d.dx + 2;
+		} else if (d.sourceLinks.length === 0) {
+			ret = d.x - this.getComputedTextLength() - 2;
+		}
+		return ret; 
+	};
+
+	function deepClone(obj) {
+	    var copy;
+
+	    // Handle the 3 simple types, and null or undefined
+	    if (null == obj || "object" != typeof obj) return obj;
+
+	    // Handle Array
+	    if (obj instanceof Array) {
+	        copy = [];
+	        for (var i = 0, len = obj.length; i < len; i++) {
+	            copy[i] = deepClone(obj[i]);
+	        }
+	        return copy;
+	    }
+
+	    // Handle Object
+	    if (obj instanceof Object) {
+	        copy = {};
+	        for (var attr in obj) {
+	            if (obj.hasOwnProperty(attr)) copy[attr] = deepClone(obj[attr]);
+	        }
+	        return copy;
+	    }
+
+	    throw new Error("Unable to copy obj! Its type isn't supported.");
+	}
+
 	function _instance(selection){}
 
 	_instance.init = function(container) {
@@ -3482,7 +3519,7 @@ function sentio_sankey_basic() {
 	};
 
 	/**
-	 * Helper functions
+	 * Util functions
 	 */
 	
 	function center(node) {
@@ -3676,33 +3713,6 @@ function sentio_sankey_basic() {
 		_data.dispatch.onclick(d);
 	}
 
-	function deepClone(obj) {
-	    var copy;
-
-	    // Handle the 3 simple types, and null or undefined
-	    if (null == obj || "object" != typeof obj) return obj;
-
-	    // Handle Array
-	    if (obj instanceof Array) {
-	        copy = [];
-	        for (var i = 0, len = obj.length; i < len; i++) {
-	            copy[i] = deepClone(obj[i]);
-	        }
-	        return copy;
-	    }
-
-	    // Handle Object
-	    if (obj instanceof Object) {
-	        copy = {};
-	        for (var attr in obj) {
-	            if (obj.hasOwnProperty(attr)) copy[attr] = deepClone(obj[attr]);
-	        }
-	        return copy;
-	    }
-
-	    throw new Error("Unable to copy obj! Its type isn't supported.");
-	}
-
 	_instance.model = function(v) {
 		if(!arguments.length) { return _data.dispatch; }
 		_data.nodes = deepClone(v.nodes);
@@ -3747,7 +3757,6 @@ function sentio_sankey_basic() {
 					d3.select(this).style({'stroke-opacity': '0.2'});
 				});
 
-
 		linkJoin.transition()
 				.attr('d', _path)
 				.style('stroke-width', function(d) { return Math.max(1, d.dy); })
@@ -3761,8 +3770,11 @@ function sentio_sankey_basic() {
 		var nodeJoin = _element.g.nodes.selectAll('.node')
 			.data(_data.nodes, function(d) { return d.slug; });
 
-		nodeJoin.enter().append('rect')
-				.attr('class', 'node')
+		var nodeEnter = nodeJoin.enter().append('g')
+				.attr('class', 'node');
+
+		nodeEnter.append('rect')
+				.attr('class', 'node-rect')
 				.attr('id', function(d) { return 'node-'+d.slug; })
 				.attr('x', function(d) { return d.x; })
 				.attr('y', function(d) { return d.y; })
@@ -3780,6 +3792,10 @@ function sentio_sankey_basic() {
 					d.targetLinks.forEach(function(tl) {
 						_element.g.links.select('#link-'+tl.source.slug+'_'+tl.target.slug).style({'stroke-opacity': '0.5'});
 					});
+					_element.g.nodes.select('#node-text-'+d.slug)
+						.text(function(d) { return '('+d.value+') '+d.name; })
+						.attr('x', _textPositionHandler);
+
 				})
 				.on('mouseout', function(d) {
 					d.sourceLinks.forEach(function(sl) {
@@ -3788,13 +3804,31 @@ function sentio_sankey_basic() {
 					d.targetLinks.forEach(function(tl) {
 						_element.g.links.select('#link-'+tl.source.slug+'_'+tl.target.slug).style({'stroke-opacity': '0.2'});
 					});
+					_element.g.nodes.select('#node-text-'+d.slug)
+						.text(function(d) { return d.name.length > 20 ? '('+d.value+') '+d.name.substring(0,20)+'...' : '('+d.value+') '+d.name; })
+						.attr('x', _textPositionHandler);
 				})
 				.on('click', nodeClicked);
 
-		nodeJoin.transition()
+		nodeEnter.append('text')
+				.attr('class', 'node-text')
+				.attr('id', function(d) { return 'node-text-'+d.slug; })
+				.attr('y', function(d) { return d.y + (d.dy / 2); }) 
+				.attr("dy", ".35em")
+				.text(function(d) { return d.name.length > 20 ? '('+d.value+') '+d.name.substring(0,20)+'...' : '('+d.value+') '+d.name; })
+				.attr('x', _textPositionHandler);
+
+		var nodeUpdate = nodeJoin.select('.node-rect');
+		var nodeTUpdate = nodeJoin.select('.node-text');
+
+		nodeUpdate.transition()
 				.attr('x', function(d) { return d.x; })
 				.attr('y', function(d) { return d.y; })
 				.attr('height', function(d) { return d.dy; });
+
+		nodeTUpdate.transition()
+				.attr('x', _textPositionHandler)
+				.attr('y', function(d) { return d.y + (d.dy / 2); });
 
 		nodeJoin.exit().remove();
 
