@@ -3411,13 +3411,13 @@ function sentio_sankey_basic() {
 	var _nodeValue = {
 		name: function(n) { return n.name; },
 		slug: function(n) { return n.slug; },
-		value: function(n) { return n.value; }
+		value: function(n) { return n.count; }
 	};
 
 	var _linkValue = {
 		source: function(l) { return l.source; },
 		target: function(l) { return l.target; },
-		value: function(l) { return l.value; }
+		value: function(l) { return l.count; }
 	};
 
 	var _scale = {
@@ -3427,6 +3427,8 @@ function sentio_sankey_basic() {
 	var _data = {
 		nodes: [],
 		links: [],
+		node_positions: {},
+		link_positions: {},
 		dispatch: d3.dispatch('onclick')
 	};
 
@@ -3444,13 +3446,17 @@ function sentio_sankey_basic() {
 	var _curvature = 0.5;
 
 	var _path = function(d) {
-		var x0 = d.source.x + d.source.dx,
-			x1 = d.target.x,
+		var sourceNode = _data.node_positions[d.source.slug];
+		var targetNode = _data.node_positions[d.target.slug];
+		var link = _data.link_positions[d.source.slug+'_'+d.target.slug];
+
+		var x0 = sourceNode.x + sourceNode.dx,
+			x1 = targetNode.x,
 			xi = d3.interpolateNumber(x0, x1),
 			x2 = xi(_curvature),
 			x3 = xi(1 - _curvature),
-			y0 = d.source.y + d.sy + d.dy / 2,
-			y1 = d.target.y + d.ty + d.dy / 2;
+			y0 = sourceNode.y + link.sy + link.dy / 2,
+			y1 = targetNode.y + link.ty + link.dy / 2;
 
 		return 'M' + x0 + ',' + y0 + 
 			   'C' + x2 + ',' + y0 +
@@ -3459,11 +3465,12 @@ function sentio_sankey_basic() {
 	};
 
 	var _textPositionHandler = function(d) {
-		var ret = d.x + (d.dx / 2) - (this.getComputedTextLength() / 2);
-		if (d.targetLinks.length === 0) {
-			ret = d.x + d.dx + 2;
-		} else if (d.sourceLinks.length === 0) {
-			ret = d.x - this.getComputedTextLength() - 2;
+		var nodePosition = _data.node_positions[d.slug];
+		var ret = nodePosition.x + (nodePosition.dx / 2) - (this.getComputedTextLength() / 2);
+		if (d.sourceLinks.length === 0) {
+			ret = nodePosition.x + nodePosition.dx + 2;
+		} else if (d.targetLinks.length === 0) {
+			ret = nodePosition.x - this.getComputedTextLength() - 2;
 		}
 		return ret; 
 	};
@@ -3504,8 +3511,8 @@ function sentio_sankey_basic() {
 
 		_element.g.container = _element.svg.append('g');
 
-		_element.g.nodes = _element.g.container.append('g').attr('class', 'nodes');
 		_element.g.links = _element.g.container.append('g').attr('class', 'links');
+		_element.g.nodes = _element.g.container.append('g').attr('class', 'nodes');
 
 		_instance.resize();
 
@@ -3523,7 +3530,7 @@ function sentio_sankey_basic() {
 	 */
 	
 	function center(node) {
-		return node.y + node.dy / 2;
+		return _data.node_positions[node.slug].y + _data.node_positions[node.slug].dy / 2;
 	}
 
 	function computeNodeMap() {
@@ -3559,14 +3566,14 @@ function sentio_sankey_basic() {
 
 	function moveSinksRight(x) {
 		_data.nodes.forEach(function(node) {
-			if (!node.sourceLinks.length) {
-				node.x = x - 1;
+			if (!node.targetLinks.length) {
+				_data.node_positions[node.slug].x = x - 1;
 			}
 		});
 	}
 	function scaleNodeBreadths(v) {
 		_data.nodes.forEach(function(node) {
-			node.x *= v;
+			_data.node_positions[node.slug].x *= v;
 		});
 	}
 	function computeNodeBreadths() {
@@ -3575,11 +3582,11 @@ function sentio_sankey_basic() {
 			x = 0;
 
 		function nodeComputer(n) {
-			n.x = x;
-			n.dx = _nodeWidth;
-			n.sourceLinks.forEach(function(link) {
-				if (nextNodes.indexOf(_linkValue.target(link)) < 0) {
-					nextNodes.push(_linkValue.target(link));
+			_data.node_positions[n.slug].x = x;
+			_data.node_positions[n.slug].dx = _nodeWidth;
+			n.targetLinks.forEach(function(link) {
+				if (nextNodes.indexOf(link.target) < 0) {
+					nextNodes.push(link.target);
 				}
 			});
 		}
@@ -3591,7 +3598,7 @@ function sentio_sankey_basic() {
 			++x;
 		}
 
-		moveSinksRight(x);
+		// moveSinksRight(x);
 		scaleNodeBreadths((_width - _nodeWidth) / (x - 1));
 	}
 
@@ -3602,22 +3609,27 @@ function sentio_sankey_basic() {
 
 		nodesByBreadth.forEach(function(nodes) {
 			nodes.forEach(function(node, i) {
-				node.y = i;
-				node.dy = node.value * ky;
+				_data.node_positions[node.slug].y = i;
+				_data.node_positions[node.slug].dy = node.count * ky;
+				node.targetLinks.forEach(function(link) {
+					_data.link_positions[link.source.slug+'_'+link.target.slug].dy = link.count * ky;
+				});
 			});
 		});
-		_data.links.forEach(function(link) {
-			link.dy = link.value * ky;
-		});
+		// _data.links.forEach(function(link) {
+		// 	_data.link_positions[link.source.slug+'_'+link.target.slug].dy = link.count * ky;
+		// });
 	}
-	function ascendingDepth(a, b) { return a.y - b.y; }
+	function ascendingDepth(a, b) { 
+		return _data.node_positions[a.slug].y - _data.node_positions[b.slug].y; 
+	}
 	function resolveCollisions(nodesByBreadth) {
 		nodesByBreadth.forEach(function(nodes) {
 			var node, dy, y0 = 0, n = nodes.length, i;
 
 			nodes.sort(ascendingDepth);
 			for (i = 0; i < n; ++i) {
-				node = nodes[i];
+				node = _data.node_positions[nodes[i].slug];
 				dy = y0 - node.y;
 				if (dy > 0) node.y += dy;
 				y0 = node.y + node.dy + _nodePadding;
@@ -3628,7 +3640,7 @@ function sentio_sankey_basic() {
 				y0 = node.y -= dy;
 
 				for (i = n-2; i >= 0; --i) {
-					node = nodes[i];
+					node = _data.node_positions[nodes[i].slug];
 					dy = node.y + node.dy + _nodePadding - y0;
 					if (dy > 0) node.y -= dy;
 					y0 = node.y;
@@ -3641,13 +3653,13 @@ function sentio_sankey_basic() {
 			nodes.forEach(function(node) {
 				if (node.sourceLinks.length) {
 					var y = d3.sum(node.sourceLinks, weightedTarget) / d3.sum(node.sourceLinks, _linkValue.value);
-					node.y += (y - center(node)) * alpha;
+					_data.node_positions[node.slug].y += (y - center(node)) * alpha;
 				}
 			});
 		});
 
 		function weightedTarget(link) {
-			return center(_linkValue.target(link) * _linkValue.value(link));
+			return center(_linkValue.target(link)) * _linkValue.value(link);
 		}
 	}
 	function relaxLeftToRight(nodesByBreadth, alpha) {
@@ -3655,18 +3667,18 @@ function sentio_sankey_basic() {
 			nodes.forEach(function(node) {
 				if (node.targetLinks.length) {
 					var y = d3.sum(node.targetLinks, weightedSource) / d3.sum(node.targetLinks, _linkValue.value);
-					node.y += (y - center(node)) * alpha;
+					_data.node_positions[node.slug].y += (y - center(node)) * alpha;
 				}
 			});
 		});
 
 		function weightedSource(link) {
-			return center(_linkValue.source(link) * _linkValue.value(link));
+			return center(_linkValue.source(link)) * _linkValue.value(link);
 		}
 	}
 	function computeNodeDepths(iterations) {
 		var nodesByBreadth = d3.nest()
-			.key(function(d) { return d.x; })
+			.key(function(d) { return _data.node_positions[d.slug].x; })
 			.sortKeys(d3.ascending)
 			.entries(_data.nodes)
 			.map(function(d) { return d.values; });
@@ -3691,21 +3703,21 @@ function sentio_sankey_basic() {
 		_data.nodes.forEach(function(node) {
 			var sy = 0, ty = 0;
 			node.sourceLinks.forEach(function(link) {
-				link.sy = sy;
-				sy += link.dy;
+				_data.link_positions[link.source.slug+'_'+link.target.slug].ty = ty;
+				ty += _data.link_positions[link.source.slug+'_'+link.target.slug].dy;
 			});
 			node.targetLinks.forEach(function(link) {
-				link.ty = ty;
-				ty += link.dy;
+				_data.link_positions[link.source.slug+'_'+link.target.slug].sy = sy;
+				sy += _data.link_positions[link.source.slug+'_'+link.target.slug].dy;
 			});
 		});
 
 		function ascendingTargetDepth(a, b) {
-			return a.target.y - b.target.y;
+			return _data.node_positions[a.target.slug].y - _data.node_positions[b.target.slug].y;
 		}
 
 		function ascendingSourceDepth(a, b) {
-			return a.source.y - b.source.y;
+			return _data.node_positions[a.source.slug].y - _data.node_positions[b.source.slug].y;
 		}
 	}
 
@@ -3715,8 +3727,27 @@ function sentio_sankey_basic() {
 
 	_instance.model = function(v) {
 		if(!arguments.length) { return _data.dispatch; }
-		_data.nodes = deepClone(v.nodes);
-		_data.links = deepClone(v.links);
+		_data.nodes = v;
+		_data.links = [];
+		_data.node_positions = {};
+		_data.link_positions = {};
+
+		var linkLinker = function(link) {
+			var id = link.source.slug + '_' + link.target.slug;
+			_data.link_positions[id] = {};
+
+			var foundLink = _data.links.find(function(l) {
+				return l.source.slug === link.source.slug && l.target.slug === link.target.slug;
+			});
+
+			if (foundLink === undefined) { _data.links.push(link); }
+		};
+
+		_data.nodes.forEach(function(node) {
+			_data.node_positions[node.slug] = {};
+			node.sourceLinks.forEach(linkLinker);
+			node.targetLinks.forEach(linkLinker);
+		});
 
 		console.log(_data);
 
@@ -3725,9 +3756,6 @@ function sentio_sankey_basic() {
 
 	_instance.redraw = function() {
 
-		computeNodeMap();
-		computeNodeLinks();
-		computeNodeValues();
 		computeNodeBreadths();
 		computeNodeDepths(32);
 		computeLinkDepths();
@@ -3748,8 +3776,11 @@ function sentio_sankey_basic() {
 				.attr('class', 'link')
 				.attr('id', function(d) { return 'link-'+d.source.slug+'_'+d.target.slug; })
 				.attr('d', _path)
-				.style('stroke-width', function(d) { return Math.max(1, d.dy); })
-				.sort(function(a, b) { return b.dy - a.dy; })
+				.attr('stroke', function(d) {
+					return d.color ? d.color : '#FFF';
+				})
+				.style('stroke-width', function(d) { return Math.max(1, _data.link_positions[d.source.slug+'_'+d.target.slug].dy); })
+				.sort(function(a, b) { return _data.link_positions[b.source.slug+'_'+b.target.slug].dy - _data.link_positions[a.source.slug+'_'+a.target.slug].dy; })
 				.on('mouseover', function(d) {
 					d3.select(this).style({'stroke-opacity': '0.5'});
 				})
@@ -3759,8 +3790,8 @@ function sentio_sankey_basic() {
 
 		linkJoin.transition()
 				.attr('d', _path)
-				.style('stroke-width', function(d) { return Math.max(1, d.dy); })
-				.sort(function(a, b) { return b.dy - a.dy; });
+				.style('stroke-width', function(d) { return Math.max(1, _data.link_positions[d.source.slug+'_'+d.target.slug].dy); })
+				.sort(function(a, b) { return _data.link_positions[b.source.slug+'_'+b.target.slug].dy - _data.link_positions[a.source.slug+'_'+a.target.slug].dy; });
 
 		linkJoin.exit().remove();
 	}
@@ -3776,15 +3807,16 @@ function sentio_sankey_basic() {
 		nodeEnter.append('rect')
 				.attr('class', 'node-rect')
 				.attr('id', function(d) { return 'node-'+d.slug; })
-				.attr('x', function(d) { return d.x; })
-				.attr('y', function(d) { return d.y; })
-				.attr('height', function(d) { return d.dy; })
+				.attr('x', function(d) { return _data.node_positions[d.slug].x; })
+				.attr('y', function(d) { return _data.node_positions[d.slug].y; })
+				.attr('height', function(d) { return _data.node_positions[d.slug].dy; })
 				.attr('width', _nodeWidth)
 				.style('fill', function(d) { 
-					d.color = _scale.color(d.slug); 
-					return d.color;
+					if (d.color) { return d.color; }
+					_data.node_positions[d.slug].color = _scale.color(d.slug); 
+					return _data.node_positions[d.slug].color;
 				})
-				.style('stroke', function(d) { return d3.rgb(d.color).darker(2); })
+				.style('stroke', function(d) { return d3.rgb(_data.node_positions[d.slug].color).darker(2); })
 				.on('mouseover', function(d) {
 					d.sourceLinks.forEach(function(sl) {
 						_element.g.links.select('#link-'+sl.source.slug+'_'+sl.target.slug).style({'stroke-opacity': '0.5'});
@@ -3793,7 +3825,7 @@ function sentio_sankey_basic() {
 						_element.g.links.select('#link-'+tl.source.slug+'_'+tl.target.slug).style({'stroke-opacity': '0.5'});
 					});
 					_element.g.nodes.select('#node-text-'+d.slug)
-						.text(function(d) { return '('+d.value+') '+d.name; })
+						.text(function(d) { return '('+d.count+') '+d.name; })
 						.attr('x', _textPositionHandler);
 
 				})
@@ -3805,7 +3837,7 @@ function sentio_sankey_basic() {
 						_element.g.links.select('#link-'+tl.source.slug+'_'+tl.target.slug).style({'stroke-opacity': '0.2'});
 					});
 					_element.g.nodes.select('#node-text-'+d.slug)
-						.text(function(d) { return d.name.length > 20 ? '('+d.value+') '+d.name.substring(0,20)+'...' : '('+d.value+') '+d.name; })
+						.text(function(d) { return d.name.length > 20 ? '('+d.count+') '+d.name.substring(0,20)+'...' : '('+d.count+') '+d.name; })
 						.attr('x', _textPositionHandler);
 				})
 				.on('click', nodeClicked);
@@ -3813,22 +3845,22 @@ function sentio_sankey_basic() {
 		nodeEnter.append('text')
 				.attr('class', 'node-text')
 				.attr('id', function(d) { return 'node-text-'+d.slug; })
-				.attr('y', function(d) { return d.y + (d.dy / 2); }) 
+				.attr('y', function(d) { return _data.node_positions[d.slug].y + (_data.node_positions[d.slug].dy / 2); }) 
 				.attr("dy", ".35em")
-				.text(function(d) { return d.name.length > 20 ? '('+d.value+') '+d.name.substring(0,20)+'...' : '('+d.value+') '+d.name; })
+				.text(function(d) { return d.name.length > 20 ? '('+d.count+') '+d.name.substring(0,20)+'...' : '('+d.count+') '+d.name; })
 				.attr('x', _textPositionHandler);
 
 		var nodeUpdate = nodeJoin.select('.node-rect');
 		var nodeTUpdate = nodeJoin.select('.node-text');
 
 		nodeUpdate.transition()
-				.attr('x', function(d) { return d.x; })
-				.attr('y', function(d) { return d.y; })
-				.attr('height', function(d) { return d.dy; });
+				.attr('x', function(d) { return _data.node_positions[d.slug].x; })
+				.attr('y', function(d) { return _data.node_positions[d.slug].y; })
+				.attr('height', function(d) { return _data.node_positions[d.slug].dy; });
 
 		nodeTUpdate.transition()
 				.attr('x', _textPositionHandler)
-				.attr('y', function(d) { return d.y + (d.dy / 2); });
+				.attr('y', function(d) { return _data.node_positions[d.slug].y + (_data.node_positions[d.slug].dy / 2); });
 
 		nodeJoin.exit().remove();
 

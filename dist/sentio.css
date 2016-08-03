@@ -135,7 +135,7 @@
 }
 /*
 =======================================
-	Sankey Chart
+  Sankey Chart
 =======================================
 */
 
@@ -153,7 +153,6 @@
  
 .sentio.sankey .link {
   fill: none;
-  stroke: #FFF;
   stroke-opacity: .2;
 }
  
