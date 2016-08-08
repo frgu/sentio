@@ -4,12 +4,6 @@
 =======================================
 */
 
-.sentio.sankey .node rect {
-  cursor: move;
-  fill-opacity: .9;
-  shape-rendering: crispEdges;
-}
- 
 .sentio.sankey .node text {
   pointer-events: none;
   font-weight: bold;
@@ -23,4 +17,14 @@
  
 .sentio.sankey .link:hover {
   stroke-opacity: .5;
+}
+
+.sentio.sankey .node-rect {
+  fill-opacity: .9;
+  shape-rendering: crispEdges;
+  cursor: pointer;
+}
+
+.sentio.sankey .node-drag {
+  cursor: move;
 }
