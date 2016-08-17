@@ -7,6 +7,8 @@ function sentio_sankey_basic() {
 	var _margin = {top: 40, right: 40, bottom: 40, left: 40};
 	var _width = 1500, _height = _width / 2;
 	var _nodeWidth = 15, _nodePadding = 10;
+	var _widthPadding = 0;
+	var _direction = 'horizontal';
 
 	var _nodeValue = {
 		name: function(n) { return n.name; },
@@ -50,18 +52,37 @@ function sentio_sankey_basic() {
 		var targetNode = _data.node_positions[d.target.slug];
 		var link = _data.link_positions[d.source.slug+'_'+d.target.slug];
 
-		var x0 = sourceNode.x + sourceNode.dx,
-			x1 = targetNode.x,
-			xi = d3.interpolateNumber(x0, x1),
-			x2 = xi(_curvature),
-			x3 = xi(1 - _curvature),
-			y0 = sourceNode.y + link.sy + link.dy / 2,
+		var x0, x1, xi, x2, x3, y0, y1, ret;
+
+		if (_direction === 'horizontal') {
+			x0 = sourceNode.x + sourceNode.dx + _widthPadding;
+			x1 = targetNode.x + _widthPadding;
+			xi = d3.interpolateNumber(x0, x1);
+			x2 = xi(_curvature) + _widthPadding;
+			x3 = xi(1 - _curvature) + _widthPadding;
+			y0 = sourceNode.y + link.sy + link.dy / 2;
 			y1 = targetNode.y + link.ty + link.dy / 2;
 
-		return 'M' + x0 + ',' + y0 + 
-			   'C' + x2 + ',' + y0 +
-			   ' ' + x3 + ',' + y1 +
-			   ' ' + x1 + ',' + y1;
+			ret = 'M' + x0 + ',' + y0 + 
+			   	  'C' + x2 + ',' + y0 +
+			   	  ' ' + x3 + ',' + y1 +
+			   	  ' ' + x1 + ',' + y1;
+		} else {
+			y0 = sourceNode.y + sourceNode.dy;
+			y1 = targetNode.y;
+			xi = d3.interpolateNumber(y0, y1);
+			x2 = xi(_curvature);
+			x3 = xi(1 - _curvature);
+			x0 = sourceNode.x + link.sy + link.dy / 2 + _widthPadding;
+			x1 = targetNode.x + link.ty + link.dy / 2 + _widthPadding;
+
+			ret = 'M' + x0 + ',' + y0 + 
+			   	  'C' + x0 + ',' + x2 +
+			   	  ' ' + x1 + ',' + x3 +
+			   	  ' ' + x1 + ',' + y1;
+		}
+
+		return ret;
 	};
 
 	function _instance(selection){}
@@ -126,7 +147,11 @@ function sentio_sankey_basic() {
 		}
 
 		// moveSinksRight(x);
-		scaleNodeBreadths((_width - _nodeWidth) / (x - 1));
+		if (_direction === 'horizontal') {
+			scaleNodeBreadths((_width - _nodeWidth) / (x - 1));
+		} else {
+			scaleNodeBreadths((_height - _nodeWidth) / (x - 1));	
+		}
 	}
 
 	function computeNodeDepths(iterations) {
@@ -286,16 +311,36 @@ function sentio_sankey_basic() {
 			node.targetLinks.forEach(linkLinker);
 		});
 
-		console.log(_data);
-
 		return _instance;
 	};
+
+	function updateDirection() {
+		if (_direction === 'vertical') {
+			for (var key in _data.node_positions) {
+				var node = _data.node_positions[key];
+				var tmpx = node.x;
+				var tmpdx = node.dx;
+				node.x = node.y / 2;
+				node.y = tmpx;
+				node.dx = node.dy / 2;
+				node.dy = tmpdx;
+			}
+			for (var linkkey in _data.link_positions) {
+				var link = _data.link_positions[linkkey];
+				link.dy = link.dy / 2;
+				link.sy = link.sy / 2;
+				link.ty = link.ty / 2;
+			}
+		}
+	}
 
 	_instance.redraw = function() {
 
 		computeNodeBreadths();
 		computeNodeDepths(32);
 		computeLinkDepths();
+
+		updateDirection();
 
 		if (_width > 0) {
 			updateLinks();
@@ -319,7 +364,7 @@ function sentio_sankey_basic() {
 				.on('mouseover', function(d) { d3.select(this).style({'stroke-opacity': '0.5'}); })
 				.on('mouseout', function(d) { d3.select(this).style({'stroke-opacity': '0.2'}); });
 
-		linkJoin.transition()
+		linkJoin.transition().duration(1000)
 				.attr('d', _path)
 				.style('stroke-width', function(d) { return Math.max(1, _data.link_positions[d.source.slug+'_'+d.target.slug].dy); })
 				.sort(function(a, b) { return _data.link_positions[b.source.slug+'_'+b.target.slug].dy - _data.link_positions[a.source.slug+'_'+a.target.slug].dy; });
@@ -328,9 +373,13 @@ function sentio_sankey_basic() {
 	}
 
 	function dragmove(d) {
-		_data.node_positions[d.slug].y = Math.max(0, Math.min(_height - _data.node_positions[d.slug].dy, _data.node_positions[d.slug].y + d3.event.dy));
+		if (_direction === 'horizontal') {
+			_data.node_positions[d.slug].y = Math.max(0, Math.min(_height - _data.node_positions[d.slug].dy, _data.node_positions[d.slug].y + d3.event.dy));
+		} else {
+			_data.node_positions[d.slug].x = Math.max(0, Math.min(_width/2 - _data.node_positions[d.slug].dx, _data.node_positions[d.slug].x + d3.event.dx));
+		}
     	/*jshint validthis: true */
-		d3.select(this).attr('transform', 'translate('+_data.node_positions[d.slug].x+','+_data.node_positions[d.slug].y+')');
+		d3.select(this).attr('transform', 'translate('+(_data.node_positions[d.slug].x+_widthPadding) +','+_data.node_positions[d.slug].y+')');
 		computeLinkDepths();
 		d3.selectAll('.link').attr('d', _path);
 	}
@@ -348,14 +397,12 @@ function sentio_sankey_basic() {
 		var nodeEnter = nodeJoin.enter().append('g')
 				.attr('class', 'node')
 				.attr('id', function(d) { return 'node-group-'+d.slug; })
-				.attr('transform', function(d) { return "translate("+_data.node_positions[d.slug].x+','+_data.node_positions[d.slug].y+')'; })
+				.attr('transform', function(d) { return "translate("+(_widthPadding + _data.node_positions[d.slug].x)+','+_data.node_positions[d.slug].y+')'; })
 				.call(drag);
 
 		nodeEnter.append('rect')
 				.attr('class', 'node-rect')
 				.attr('id', function(d) { return 'node-'+d.slug; })
-				.attr('height', function(d) { return _data.node_positions[d.slug].dy; })
-				.attr('width', _nodeWidth)
 				.style('fill', function(d) { 
 					if (d.color) { return d.color; }
 					_data.node_positions[d.slug].color = _scale.color(d.slug); 
@@ -399,43 +446,50 @@ function sentio_sankey_basic() {
 		nodeEnter.append('text')
 				.attr('class', 'node-text')
 				.attr('id', function(d) { return 'node-text-'+d.slug; })
-				.attr('x', '-6')
-				.attr('y', function(d) { return _data.node_positions[d.slug].dy / 2; })
 				.attr('dy', '.35em')
-				.attr('text-anchor', 'end')
-				.attr('transform', null)
-				.text(function(d) { return d.name.length > 20 ? '('+d.count+') '+d.name.substring(0,20)+'...' : '('+d.count+') '+d.name; })
-			.filter(function(d) { return _data.node_positions[d.slug].x < _width / 2; })
-				.attr('x', 6 + _nodeWidth)
-				.attr('text-anchor', 'start');
+				.attr('transform', null);
 		
 
 		var nodeUpdate = nodeJoin.select('.node-rect');
 		var nodeTUpdate = nodeJoin.select('.node-text');
 
-		nodeJoin.transition()
-				.attr('transform', function(d) { return "translate("+_data.node_positions[d.slug].x+','+_data.node_positions[d.slug].y+')'; });
+		nodeJoin.transition().duration(1000)
+				.attr('transform', function(d) { return "translate("+(_widthPadding + _data.node_positions[d.slug].x)+','+_data.node_positions[d.slug].y+')'; });
 
-		nodeUpdate.transition()
-				.attr('height', function(d) { return _data.node_positions[d.slug].dy; });
+		nodeUpdate.transition().duration(1000)
+				.attr('height', function(d) { return _data.node_positions[d.slug].dy; })
+				.attr('width', function(d) { return _data.node_positions[d.slug].dx; });
 
-		nodeTUpdate.transition()
-				.attr('x', '-6')
-				.attr('y', function(d) { return _data.node_positions[d.slug].dy / 2; })
-				.attr('text-anchor', 'end')
+		nodeTUpdate.transition().duration(1000)
+				.attr('x', function(d) { return _direction === 'horizontal' ? '-6' : _data.node_positions[d.slug].dx / 2; })
+				.attr('y', function(d) { return _direction === 'horizontal' ? _data.node_positions[d.slug].dy / 2 : '25'; })
+				.attr('text-anchor', _direction === 'horizontal' ? 'end' : 'middle')
 				.text(function(d) { return d.name.length > 20 ? '('+d.count+') '+d.name.substring(0,20)+'...' : '('+d.count+') '+d.name; })
-			.filter(function(d) { return _data.node_positions[d.slug].x < _width / 2; })
-				.attr('x', 6 + _nodeWidth)
-				.attr('text-anchor', 'start');
+			.filter(function(d) { return _direction === 'horizontal' ? _data.node_positions[d.slug].x < _width / 2 : _data.node_positions[d.slug].y > _height / 2; })
+				.attr('x', function(d) { return _direction === 'horizontal' ? (6 + _nodeWidth) : _data.node_positions[d.slug].dx / 2; })
+				.attr('y', function(d) { return _direction === 'horizontal' ? _data.node_positions[d.slug].dy / 2 : '-10'; })
+				.attr('text-anchor', _direction === 'horizontal' ? 'start' : 'middle');
 
 		nodeJoin.exit().remove();
 
 	}
 
+	_instance.direction = function(d) {
+		if(!arguments.length) { return _direction; }
+		_direction = d;
+		return _instance;
+	};
+
 	_instance.width = function(v){
 		if(!arguments.length) { return _width; }
 		_width = v;
-		_height = v/2;
+		if (_direction === 'vertical') {
+			_widthPadding = v / 4;
+			_height = v;
+		} else {
+			_widthPadding = 0;
+			_height = v/2;
+		}
 		return _instance;
 	};
 

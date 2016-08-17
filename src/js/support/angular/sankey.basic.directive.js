@@ -7,6 +7,7 @@ function($document, $window, $timeout, $log) {'use strict';
 			model: '=sentioModel',
 			resizeWidth: '@sentioResizeWidth',
 			configureFn: '&sentioConfigureFn',
+			direction: '=sentioDirection'
 		},
 		replace : false,
 		link : function(scope, element, attrs, controller) {
@@ -14,6 +15,13 @@ function($document, $window, $timeout, $log) {'use strict';
 			var sankey = sentio.sankey.basic();
 
 			sankey.init(sankeyElement);
+
+			scope.$watch('direction', function(n, o) {
+				if (null == o && null == n) { return; }
+				sankey.direction(n);
+				delayResize();
+				sankey.redraw();
+			});
 
 			scope.$watchCollection('model', function(n, o){
 				if(null == o && null == n){ return; }
