@@ -266,6 +266,7 @@ function($document, $window, $timeout, $log) {
 				if(null == o && null == n){ return; }
 
 				line.data(n);
+				line.resize();
 				redraw();
 			});
 

@@ -688,7 +688,12 @@ function sentio_line_line() {
 	function updateLegend() {
 		legend_content.series = _data.map(function(series, i) {
 			var color = _element.g.plots.select('#path-'+series.key).attr('stroke');
-			return [series.key, series.name, series.total, color];
+			return {
+				key: series.key,
+				name: series.name,
+				total: series.total,
+				color: color
+			};
 		});
 
 		invokeLegendCallback({d: legend_content});
