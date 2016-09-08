@@ -32,7 +32,6 @@ function($document, $window, $timeout, $log) {
 
 				chord.data(n);
 
-				// chord.redraw();
 				redraw();
 			});
 
