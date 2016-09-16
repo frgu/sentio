@@ -29,16 +29,12 @@ function($document, $window, $timeout, $log) {
 
 			chart.init(chartElement);
 
-			// scope.$watch('configureFn', function(n, o){
-			// 	if(null != scope.configureFn){
-			// 		scope.configureFn({ chart: chart });
-			// 	}
-			// });
-
 			scope.$watchCollection('model', function(n, o){
 				if(null == o && null == n){ return; }
 
-				chart.data(n);
+				chart.axes(n.slice(0,1)[0]);
+				chart.groups(n.slice(1,2)[0]);
+				chart.data(n.slice(2));
 				redraw();
 			});
 

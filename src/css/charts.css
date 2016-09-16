@@ -18,3 +18,27 @@
 .sentio.scatter-line .axis path {
 	stroke: rgba(128, 128, 128, 1);
 }
+
+.sentio.scatter-line .sentio-tooltip {
+	visibility: hidden;
+	position: absolute;
+	background-color: #CCC;
+	border-radius: 5px;
+	padding: 3px;
+	pointer-events: none;
+	white-space: nowrap;
+	color: black;
+}
+
+.sentio.scatter-line .scatter-axis-label {
+	fill: #EEE;
+}
+
+.sentio.scatter-line .scatter-legend {
+    -webkit-user-select: none;   /* Chrome/Safari/Opera */
+    -khtml-user-select: none;    /* Konqueror */
+    -moz-user-select: none;      /* Firefox */
+    -ms-user-select: none;       /* Internet Explorer/Edge */
+    user-select: none; 
+    cursor: pointer;
+}
