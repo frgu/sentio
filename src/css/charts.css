@@ -1,0 +1,20 @@
+/*
+=======================================
+	ScatterLine Chart
+=======================================
+*/
+
+.sentio.scatter-line .axis path,
+.sentio.scatter-line .axis > g line {
+	fill: none;
+	stroke: #000;
+	shape-rendering: crispEdges;
+}
+
+.sentio.scatter-line .axis > g line {
+	stroke: rgba(150, 150, 150, 0.1);
+}
+
+.sentio.scatter-line .axis path {
+	stroke: rgba(128, 128, 128, 1);
+}
