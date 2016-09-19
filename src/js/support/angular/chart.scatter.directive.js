@@ -7,7 +7,9 @@ function($document, $window, $timeout, $log) {
 		scope : {
 			model: '=sentioModel',
 			resizeWidth: '@sentioResizeWidth',
-			resizeHeight: '@sentioResizeHeight'
+			resizeHeight: '@sentioResizeHeight',
+			lineGrouping: '=sentioLineGrouping',
+			lineMethod: '=sentioLineMethod'
 		},
 		replace : false,
 		link : function(scope, element, attrs, controller) {
@@ -35,6 +37,19 @@ function($document, $window, $timeout, $log) {
 				chart.axes(n.slice(0,1)[0]);
 				chart.groups(n.slice(1,2)[0]);
 				chart.data(n.slice(2));
+				redraw();
+			});
+
+			scope.$watch('lineGrouping', function(n, o) {
+				if(null == o && null == n){ return; }
+				chart.lineGrouping(n);
+				redraw();
+			});
+
+			scope.$watch('lineMethod', function(n, o){
+				if(null == o && null ==n){ return; }
+
+				chart.lineMethod(n);
 				redraw();
 			});
 

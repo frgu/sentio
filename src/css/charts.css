@@ -6,6 +6,7 @@
 
 .sentio.scatter-line .axis path,
 .sentio.scatter-line .axis > g line {
+	pointer-events: none;
 	fill: none;
 	stroke: #000;
 	shape-rendering: crispEdges;
