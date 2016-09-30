@@ -91,98 +91,102 @@ function sentio_chart_scatter_line() {
 	_line.y(function(d) { return _scale.y(d[1]); });
 
 	var _generatePoint = function(x, eq) {
+		var a, b, c;
 		var ret = 0;
 		if (_lineMethod === 'linear') {
-			var slope = eq.equation[0];
-			var intercept = eq.equation[1];
-			ret = slope * x + intercept;
+			a = eq.equation[0];
+			b = eq.equation[1];
+			ret = a * x + b;
 		} else if (_lineMethod === 'logarithmic') {
-			var constant = eq.equation[0];
-			var mult = eq.equation[1];
-			ret = constant + mult * Math.log(x);
+			a = eq.equation[0];
+			b = eq.equation[1];
+			ret = a + b * Math.log(x);
 		} else if (_lineMethod === 'power') {
-			var constant = eq.equation[0];
-			var mult = eq.equation[1];
-			ret = constant * Math.pow(x, mult);
+			a = eq.equation[0];
+			b = eq.equation[1];
+			ret = a * Math.pow(x, b);
 		} else if (_lineMethod === 'exponential') {
-			var a = eq.equation[0];
-			var b = eq.equation[1];
+			a = eq.equation[0];
+			b = eq.equation[1];
 			ret = a * Math.pow(Math.E, (x*b));
 		} else if (_lineMethod === 'polynomial') {
-			var a = eq.equation[0];
-			var b = eq.equation[1];
-			var c = eq.equation[2];
+			a = eq.equation[0];
+			b = eq.equation[1];
+			c = eq.equation[2];
 			ret = c*Math.pow(x,2) + b*x + a;
 		}
 		return ret;
-	}
+	};
 
 	var _generatePoints = function(eq) {
 		var ret = [];
+		var a, b, c;
+		var x, y, i;
+		var range, start, end, steps;
 		if (_lineMethod === 'linear') {
-			var slope = eq.equation[0];
-			var intercept = eq.equation[1];
-			var x1 = eq.points[0][0]-1;
-			var x2 = eq.points[eq.points.length-1][0]+1;
-			ret.push([x1, slope * x1 + intercept]);
-			ret.push([x2, slope * x2 + intercept]);
+			a = eq.equation[0];
+			b = eq.equation[1];
+			start = eq.points[0][0]-1;
+			end = eq.points[eq.points.length-1][0]+1;
+			ret.push([start, a * start + b]);
+			ret.push([end, a * end + b]);
 		} else if (_lineMethod === 'logarithmic') {
-			var constant = eq.equation[0];
-			var mult = eq.equation[1];
-			var range = _scale.x.domain()[1]-_scale.x.domain()[0];
-			var start = eq.points[0][0]-1;
-			var end = eq.points[eq.points.length-1][0]+1;
+			a = eq.equation[0];
+			b = eq.equation[1];
+			range = _scale.x.domain()[1]-_scale.x.domain()[0];
+			start = eq.points[0][0]-1;
+			end = eq.points[eq.points.length-1][0]+1;
 
-			var steps = Math.ceil((((end-start)/range)*(_width - _margin.left - _margin.right))/2);
-			for (var i = 0; i < steps; i++) {
-				var x = start + (end - start) * (i/steps);
+			steps = Math.ceil((((end-start)/range)*(_width - _margin.left - _margin.right))/2);
+			for (i = 0; i < steps; i++) {
+				x = start + (end - start) * (i/steps);
 				if (x > 0) {
-					var y = constant + mult * Math.log(x);
+					y = a + b * Math.log(x);
 					ret.push([x, y]);
 				}
 			}
 		} else if (_lineMethod === 'power') {
-			var constant = eq.equation[0];
-			var mult = eq.equation[1];
-			var range = _scale.x.domain()[1]-_scale.x.domain()[0];
-			var start = eq.points[0][0]-1;
-			var end = eq.points[eq.points.length-1][0]+1;
+			a = eq.equation[0];
+			b = eq.equation[1];
+			range = _scale.x.domain()[1]-_scale.x.domain()[0];
+			start = eq.points[0][0]-1;
+			end = eq.points[eq.points.length-1][0]+1;
 
-			var steps = Math.ceil((((end-start)/range)*(_width - _margin.left - _margin.right))/2);
-			for (var i = 0; i < steps; i++) {
-				var x = start + (end - start) * (i/steps);			
-				var y = constant * Math.pow(x, mult);
+			steps = Math.ceil((((end-start)/range)*(_width - _margin.left - _margin.right))/2);
+			for (i = 0; i < steps; i++) {
+				x = start + (end - start) * (i/steps);			
+				y = a * Math.pow(x, b);
 				if (y) {
 					ret.push([x, y]);
 				}
 			}
 		} else if (_lineMethod === 'exponential') {
-			var a = eq.equation[0];
-			var b = eq.equation[1];
-			var range = _scale.x.domain()[1]-_scale.x.domain()[0];
-			var start = eq.points[0][0]-1;
-			var end = eq.points[eq.points.length-1][0]+1;
+			a = eq.equation[0];
+			b = eq.equation[1];
+			range = _scale.x.domain()[1]-_scale.x.domain()[0];
+			start = eq.points[0][0]-1;
+			end = eq.points[eq.points.length-1][0]+1;
 
-			var steps = Math.ceil((((end-start)/range)*(_width - _margin.left - _margin.right))/2);
-			for (var i = 0; i < steps; i++) {
-				var x = start + (end - start) * (i/steps);			
-				var y = a * Math.pow(Math.E, (x*b));
+			steps = Math.ceil((((end-start)/range)*(_width - _margin.left - _margin.right))/2);
+			for (i = 0; i < steps; i++) {
+				x = start + (end - start) * (i/steps);			
+				y = a * Math.pow(Math.E, (x*b));
 				if (y) {
 					ret.push([x, y]);
 				}
 			}
 		} else if (_lineMethod === 'polynomial') {
-			var a = eq.equation[0];
-			var b = eq.equation[1];
-			var c = eq.equation[2];
-			var range = _scale.x.domain()[1]-_scale.x.domain()[0];
-			var start = eq.points[0][0]-1;
-			var end = eq.points[eq.points.length-1][0]+1;
+			a = eq.equation[0];
+			b = eq.equation[1];
+			c = eq.equation[2];
+			range = _scale.x.domain()[1]-_scale.x.domain()[0];
+			start = eq.points[0][0]-1;
+			end = eq.points[eq.points.length-1][0]+1;
 
-			var steps = Math.ceil((((end-start)/range)*(_width - _margin.left - _margin.right))/2);
-			for (var i = 0; i < steps; i++) {
-				var x = start + (end - start) * (i/steps);			
-				var y = c*Math.pow(x,2) + b*x + a;
+			steps = Math.ceil((((end-start)/range)*(_width - _margin.left - _margin.right))/2);
+			for (i = 0; i < steps; i++) {
+				x = start + (end - start) * (i/steps);			
+				y = c*Math.pow(x,2) + b*x + a;
 				if (y) {
 					ret.push([x, y]);
 				}
@@ -327,21 +331,22 @@ function sentio_chart_scatter_line() {
 			return {equation: [A, B], points: results, string: string};
 		},
 		polynomial: function(data, order) {
-            if(typeof order == 'undefined'){
-                order = 2;
-            }
-             var lhs = [], rhs = [], results = [], a = 0, b = 0, i = 0, k = order + 1;
+			if(typeof order == 'undefined'){
+				order = 2;
+			}
+            var lhs = [], rhs = [], results = [], a = 0, b = 0, i = 0, k = order + 1, l;
 
                     for (; i < k; i++) {
-                       for (var l = 0, len = data.length; l < len; l++) {
+                       for (l = 0, len = data.length; l < len; l++) {
                           if (data[l][2] != null) {
                            a += Math.pow(data[l][1], i) * data[l][2];
                           }
                         }
-                        lhs.push(a), a = 0;
+                        lhs.push(a);
+                        a = 0;
                         var c = [];
                         for (var j = 0; j < k; j++) {
-                           for (var l = 0, len = data.length; l < len; l++) {
+                           for (l = 0, len = data.length; l < len; l++) {
                               if (data[l][2] != null) {
                                b += Math.pow(data[l][1], i + j);
                               }
@@ -605,6 +610,7 @@ function sentio_chart_scatter_line() {
 			.attr('stroke', function(d) { return _scale.color(_pointValue.group(d)); });
 
 		xAxisTickJoin.transition()
+			.attr('opacity', function(d) { return _groups.hidden.indexOf(_pointValue.group(d)) === -1 ? '1' : '0'})
 			.attr('x1', function(d) { return _scale.x(_pointValue.x(d)); })
 			.attr('x2', function(d) { return _scale.x(_pointValue.x(d)); });
 
@@ -627,6 +633,7 @@ function sentio_chart_scatter_line() {
 			.attr('stroke', function(d) { return _scale.color(_pointValue.group(d)); });
 
 		yAxisTickJoin.transition()
+			.attr('opacity', function(d) { return _groups.hidden.indexOf(_pointValue.group(d)) === -1 ? '1' : '0'})
 			.attr('y1', function(d) { return _scale.y(_pointValue.y(d)); })
 			.attr('y2', function(d) { return _scale.y(_pointValue.y(d)); });
 
@@ -722,10 +729,9 @@ function sentio_chart_scatter_line() {
 		// Move and show tooltip
 		_element.tooltip.html('<b>' + _pointValue.label(d) + '</b><br>'+_axis.labels.x+': '+_pointValue.x(d)+'<br>'+_axis.labels.y+': '+_pointValue.y(d));
 		var tooltip_width = _element.tooltip.node().getBoundingClientRect().width;
-		var tooltip_height = _element.tooltip.node().getBoundingClientRect().width;
 		_element.tooltip
-			.style('top', (_scale.y(_pointValue.y(d))+100) + 'px')
-			.style('left', (_scale.x(_pointValue.x(d))+60) + 'px');
+			.style('top', (_scale.y(_pointValue.y(d)) + _margin.top + _margin.bottom - 10) + 'px')
+			.style('left', (_scale.x(_pointValue.x(d)) + _margin.left + _margin.right + 10 - tooltip_width) + 'px');
 		_element.tooltip.transition().duration(1000).style('visibility', 'visible');
 	}
 
