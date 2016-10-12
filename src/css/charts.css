@@ -1,0 +1,53 @@
+/*
+=======================================
+	ScatterLine Chart
+=======================================
+*/
+
+.sentio.scatter-line .axis path,
+.sentio.scatter-line .axis > g line {
+	pointer-events: none;
+	fill: none;
+	stroke: #000;
+	shape-rendering: crispEdges;
+}
+
+.sentio.scatter-line .axis > g line {
+	stroke: rgba(150, 150, 150, 0.1);
+}
+
+.sentio.scatter-line .axis path {
+	stroke: rgba(128, 128, 128, 1);
+}
+
+.sentio.scatter-line .sentio-tooltip {
+	visibility: hidden;
+	position: absolute;
+	background-color: #CCC;
+	border-radius: 5px;
+	padding: 3px;
+	pointer-events: none;
+	white-space: nowrap;
+	color: black;
+}
+
+.sentio.scatter-line .scatter-axis-label {
+	fill: #EEE;
+}
+
+.sentio.scatter-line .scatter-legend {
+    -webkit-user-select: none;   /* Chrome/Safari/Opera */
+    -khtml-user-select: none;    /* Konqueror */
+    -moz-user-select: none;      /* Firefox */
+    -ms-user-select: none;       /* Internet Explorer/Edge */
+    user-select: none; 
+    cursor: pointer;
+}
+
+.sentio.scatter-line .point-focus {
+	pointer-events: none;
+}
+
+.sentio.scatter-line .scatter-path {
+	pointer-events: none;
+}
