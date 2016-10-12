@@ -4,11 +4,12 @@ function sentio_chart_scatter_line() {
 
 	// Layout properties
 	var _id = 'scatter_line' + Date.now();
-	var _margin = { top: 20, right: 20, bottom: 20, left: 20 };
+	var _margin = { top: 20, right: 50, bottom: 20, left: 50 };
 	var _width = 500;
 	var _height = 500;
 	var _lineGrouping = false;
 	var _lineMethod = 'linear';
+	var _showLegend = true;
 
 	var _data = [];
 	var _groups = {
@@ -58,7 +59,8 @@ function sentio_chart_scatter_line() {
 			.ticks(5),
 		labels: {
 			x: undefined,
-			y: undefined
+			y: undefined,
+			m: undefined
 		}
 	};
 
@@ -435,8 +437,8 @@ function sentio_chart_scatter_line() {
 		_element.g.axisLabels.y = _element.svg.append('text')
 			.attr('class', 'scatter-axis-label')
 			.attr('text-anchor', 'end')
-			.attr('x', -25)
-			.attr('y', 25)
+			.attr('x', -30)
+			.attr('y', 60)
 			.attr('dy', '.75em')
 			.attr('transform', 'rotate(-90)');
 
@@ -476,6 +478,7 @@ function sentio_chart_scatter_line() {
 		if(!arguments.length) { return _axis.labels; }
 		_axis.labels.x = v.x;
 		_axis.labels.y = v.y;
+		_axis.labels.m = v.m;
 		return _instance;
 	};
 
@@ -547,13 +550,16 @@ function sentio_chart_scatter_line() {
 		_paths = [];
 
 		var xDomain = _extent.x.getExtent(visibleData);
-		xDomain[0] -= Math.ceil((xDomain[1] - xDomain[0]) * 0.1);
-		xDomain[1] += Math.ceil((xDomain[1] - xDomain[0]) * 0.1);
+		var yDomain = _extent.y.getExtent(visibleData);
+		var xBuffer = xDomain[1] - xDomain[0] === 0 ? 5 : Math.ceil((xDomain[1] - xDomain[0]) * 0.1);
+		var yBuffer = yDomain[1] - yDomain[0] === 0 ? 5 : Math.ceil((yDomain[1] - yDomain[0]) * 0.1);
+
+		xDomain[0] -= xBuffer;
+		xDomain[1] += xBuffer;
 		_scale.x.domain(xDomain);
 
-		var yDomain = _extent.y.getExtent(visibleData);
-		yDomain[0] -= Math.ceil((yDomain[1] - yDomain[0]) * 0.1);
-		yDomain[1] += Math.ceil((yDomain[1] - yDomain[0]) * 0.1);
+		yDomain[0] -= yBuffer;
+		yDomain[1] += yBuffer;
 		_scale.y.domain(yDomain);
 
 		generatePaths(visibleData);
@@ -561,7 +567,7 @@ function sentio_chart_scatter_line() {
 		updateAxes();
 		updateLegend();
 		updatePoints();
-		updatePaths();
+		// updatePaths();
 
 		return _instance;
 	};
@@ -573,8 +579,8 @@ function sentio_chart_scatter_line() {
 
 		_element.g.axisLabels.x
 			.transition()
-			.attr('x', _width - 25)
-			.attr('y', _height - 25)
+			.attr('x', _width - _margin.left - _margin.right + 35)
+			.attr('y', _height - _margin.top - _margin.bottom + 10)
 			.text(_axis.labels.x);
 
 		_element.g.axisLabels.y
@@ -663,7 +669,15 @@ function sentio_chart_scatter_line() {
 			.on('click', handleLegendClick);
 
 		legendJoin.transition()
-			.attr('opacity', function(d) { return _groups.hidden.indexOf(d) === -1 ? '1' : '0.2'; });
+			.attr('opacity', function(d) { 
+				var ret;
+				if (_showLegend) {
+					ret = _groups.hidden.indexOf(d) === -1 ? '1' : '0.2'; 
+				} else {
+					ret = '0';
+				}
+				return ret;
+			});
 
 
 		var iconEnter = legendEnter.append('circle');
@@ -727,11 +741,15 @@ function sentio_chart_scatter_line() {
 			.attr('stroke', _scale.color(_pointValue.group(d)) );
 
 		// Move and show tooltip
-		_element.tooltip.html('<b>' + _pointValue.label(d) + '</b><br>'+_axis.labels.x+': '+_pointValue.x(d)+'<br>'+_axis.labels.y+': '+_pointValue.y(d));
+		_element.tooltip.html(
+			'<b>' + _pointValue.label(d) + '</b><br>' + 
+			_axis.labels.x+': '+_pointValue.x(d)+'<br>' + 
+			_axis.labels.y+': '+_pointValue.y(d)+'<br>' +
+			_axis.labels.m+': '+(_pointValue.y(d)/_pointValue.x(d)));
 		var tooltip_width = _element.tooltip.node().getBoundingClientRect().width;
 		_element.tooltip
-			.style('top', (_scale.y(_pointValue.y(d)) + _margin.top + _margin.bottom - 10) + 'px')
-			.style('left', (_scale.x(_pointValue.x(d)) + _margin.left + _margin.right + 10 - tooltip_width) + 'px');
+			.style('top', (_scale.y(_pointValue.y(d)) + _margin.top + _margin.bottom - 30) + 'px')
+			.style('left', (_scale.x(_pointValue.x(d)) + _margin.left + _margin.right - 20 - tooltip_width) + 'px');
 		_element.tooltip.transition().duration(1000).style('visibility', 'visible');
 	}
 
@@ -761,7 +779,7 @@ function sentio_chart_scatter_line() {
 	function updatePoints() {
 		var pointJoin = _element.g.points
 			.selectAll('.point')
-			.data(_data, function(d) { return _pointValue.id(d); });
+			.data(_data, function(d) { return _pointValue.id(d)+'_'+_pointValue.x(d)+'_'+_pointValue.y(d); });
 
 		var pointEnter = pointJoin.enter().append('g')
 			.attr('class', 'point')
@@ -777,9 +795,9 @@ function sentio_chart_scatter_line() {
 
 		circleEnter
 			.attr('r', '5')
-			.attr('fill', function(d) { return _scale.color(_pointValue.group(d)); })
+			.attr('fill', function(d, i) { return _scale.color(_pointValue.group(d)); })
 			.attr('fill-opacity', '0.5')
-			.attr('stroke', function(d) { return d3.rgb(_scale.color(_pointValue.group(d))).brighter(); })
+			.attr('stroke', function(d, i) { return d3.rgb(_scale.color(_pointValue.group(d))).brighter(); })
 			.attr('stroke-width', '1');
 
 		circleUpdate.transition()
@@ -843,6 +861,11 @@ function sentio_chart_scatter_line() {
 	_instance.lineMethod = function(v) {
 		if(!arguments.length) { return _lineMethod; }
 		_lineMethod = v;
+		return _instance;
+	};
+	_instance.showLegend = function(v) {
+		if(!arguments.length) { return _showLegend; }
+		_showLegend = v;
 		return _instance;
 	};
 

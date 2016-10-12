@@ -12,7 +12,8 @@ function($document, $window, $timeout, $log) {
 			resizeWidth: '@sentioResizeWidth',
 			resizeHeight: '@sentioResizeHeight',
 			lineGrouping: '=sentioLineGrouping',
-			lineMethod: '=sentioLineMethod'
+			lineMethod: '=sentioLineMethod',
+			showLegend: '=sentioShowLegend'
 		},
 		replace : false,
 		link : function(scope, element, attrs, controller) {
@@ -36,10 +37,9 @@ function($document, $window, $timeout, $log) {
 
 			scope.$watchCollection('model', function(n, o){
 				if(null == o && null == n){ return; }
-
-				chart.axes(n.slice(0,1)[0]);
-				chart.groups(n.slice(1,2)[0]);
-				chart.data(n.slice(2));
+				chart.axes(n[0]);
+				chart.groups(n[1]);
+				chart.data(n[2]);
 				redraw();
 			});
 
@@ -55,6 +55,13 @@ function($document, $window, $timeout, $log) {
 				chart.lineMethod(n);
 				redraw();
 			});
+
+			scope.$watch('showLegend', function(n, o) {
+				if (null == 0 && null == n){ return; }
+				
+				chart.showLegend(n);
+				redraw();
+			})
 
 			// Manage resizing the chart
 			var resizeWidth = (null != attrs.sentioResizeWidth);
