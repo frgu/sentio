@@ -4836,7 +4836,7 @@ function sentio_sankey_basic() {
 				.attr('class', 'link')
 				.attr('id', function(d) { return 'link-'+d.source.slug+'_'+d.target.slug; })
 				.attr('d', _path)
-				.attr('stroke', function(d) { return d.color ? d.color : '#ADD8E6'; })
+				.attr('stroke', function(d) { return d.color ? d.color : '#1C6CAB'; })
 				.style('stroke-width', function(d) { return Math.max(1, _data.link_positions[d.source.slug+'_'+d.target.slug].dy); })
 				.sort(function(a, b) { return _data.link_positions[b.source.slug+'_'+b.target.slug].dy - _data.link_positions[a.source.slug+'_'+a.target.slug].dy; })
 				.on('mouseover', function(d) { d3.select(this).style({'stroke-opacity': '0.5'}); })
