@@ -61,6 +61,7 @@
 	pointer-events: none;
 	white-space: nowrap;
 	color: black;
+	z-index: 9990;
 }
 
 .sentio.scatter-line .scatter-axis-label {
