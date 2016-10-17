@@ -95,25 +95,17 @@ function sentio_chart_scatter_line() {
 	var _generatePoint = function(x, eq) {
 		var a, b, c;
 		var ret = 0;
+		a = eq.equation[0];
+		b = eq.equation[1];	
 		if (_lineMethod === 'linear') {
-			a = eq.equation[0];
-			b = eq.equation[1];
 			ret = a * x + b;
 		} else if (_lineMethod === 'logarithmic') {
-			a = eq.equation[0];
-			b = eq.equation[1];
 			ret = a + b * Math.log(x);
 		} else if (_lineMethod === 'power') {
-			a = eq.equation[0];
-			b = eq.equation[1];
 			ret = a * Math.pow(x, b);
 		} else if (_lineMethod === 'exponential') {
-			a = eq.equation[0];
-			b = eq.equation[1];
 			ret = a * Math.pow(Math.E, (x*b));
 		} else if (_lineMethod === 'polynomial') {
-			a = eq.equation[0];
-			b = eq.equation[1];
 			c = eq.equation[2];
 			ret = c*Math.pow(x,2) + b*x + a;
 		}
@@ -125,21 +117,18 @@ function sentio_chart_scatter_line() {
 		var a, b, c;
 		var x, y, i;
 		var range, start, end, steps;
+
+		a = eq.equation[0];
+		b = eq.equation[1];
+		start = eq.points[0][0]-1;
+		end = eq.points[eq.points.length-1][0]+1;
+		range = _scale.x.domain()[1]-_scale.x.domain()[0];
+		steps = Math.ceil((((end-start)/range)*(_width - _margin.left - _margin.right))/2);
+
 		if (_lineMethod === 'linear') {
-			a = eq.equation[0];
-			b = eq.equation[1];
-			start = eq.points[0][0]-1;
-			end = eq.points[eq.points.length-1][0]+1;
 			ret.push([start, a * start + b]);
 			ret.push([end, a * end + b]);
 		} else if (_lineMethod === 'logarithmic') {
-			a = eq.equation[0];
-			b = eq.equation[1];
-			range = _scale.x.domain()[1]-_scale.x.domain()[0];
-			start = eq.points[0][0]-1;
-			end = eq.points[eq.points.length-1][0]+1;
-
-			steps = Math.ceil((((end-start)/range)*(_width - _margin.left - _margin.right))/2);
 			for (i = 0; i < steps; i++) {
 				x = start + (end - start) * (i/steps);
 				if (x > 0) {
@@ -148,13 +137,6 @@ function sentio_chart_scatter_line() {
 				}
 			}
 		} else if (_lineMethod === 'power') {
-			a = eq.equation[0];
-			b = eq.equation[1];
-			range = _scale.x.domain()[1]-_scale.x.domain()[0];
-			start = eq.points[0][0]-1;
-			end = eq.points[eq.points.length-1][0]+1;
-
-			steps = Math.ceil((((end-start)/range)*(_width - _margin.left - _margin.right))/2);
 			for (i = 0; i < steps; i++) {
 				x = start + (end - start) * (i/steps);			
 				y = a * Math.pow(x, b);
@@ -163,13 +145,6 @@ function sentio_chart_scatter_line() {
 				}
 			}
 		} else if (_lineMethod === 'exponential') {
-			a = eq.equation[0];
-			b = eq.equation[1];
-			range = _scale.x.domain()[1]-_scale.x.domain()[0];
-			start = eq.points[0][0]-1;
-			end = eq.points[eq.points.length-1][0]+1;
-
-			steps = Math.ceil((((end-start)/range)*(_width - _margin.left - _margin.right))/2);
 			for (i = 0; i < steps; i++) {
 				x = start + (end - start) * (i/steps);			
 				y = a * Math.pow(Math.E, (x*b));
@@ -178,14 +153,7 @@ function sentio_chart_scatter_line() {
 				}
 			}
 		} else if (_lineMethod === 'polynomial') {
-			a = eq.equation[0];
-			b = eq.equation[1];
 			c = eq.equation[2];
-			range = _scale.x.domain()[1]-_scale.x.domain()[0];
-			start = eq.points[0][0]-1;
-			end = eq.points[eq.points.length-1][0]+1;
-
-			steps = Math.ceil((((end-start)/range)*(_width - _margin.left - _margin.right))/2);
 			for (i = 0; i < steps; i++) {
 				x = start + (end - start) * (i/steps);			
 				y = c*Math.pow(x,2) + b*x + a;
@@ -227,75 +195,74 @@ function sentio_chart_scatter_line() {
 
 	var _regression_fn = {
 		linear: function(data) {
+			var sum = [0, 0, 0, 0, 0], n = 0, results = [];
 
-            var sum = [0, 0, 0, 0, 0], n = 0, results = [];
+			for (; n < data.length; n++) {
+				if (data[n][2] != null) {
+					sum[0] += _pointValue.x(data[n]);
+					sum[1] += _pointValue.y(data[n]);
+					sum[2] += _pointValue.x(data[n]) * _pointValue.x(data[n]);
+					sum[3] += _pointValue.x(data[n]) * _pointValue.y(data[n]);
+					sum[4] += _pointValue.y(data[n]) * _pointValue.y(data[n]);
+				}
+			}
 
-            for (; n < data.length; n++) {
-              if (data[n][2] != null) {
-                sum[0] += _pointValue.x(data[n]);
-                sum[1] += _pointValue.y(data[n]);
-                sum[2] += _pointValue.x(data[n]) * _pointValue.x(data[n]);
-                sum[3] += _pointValue.x(data[n]) * _pointValue.y(data[n]);
-                sum[4] += _pointValue.y(data[n]) * _pointValue.y(data[n]);
-              }
-            }
+			var gradient = (n * sum[3] - sum[0] * sum[1]) / (n * sum[2] - sum[0] * sum[0]);
 
-            var gradient = (n * sum[3] - sum[0] * sum[1]) / (n * sum[2] - sum[0] * sum[0]);
-            var intercept = (sum[1] / n) - (gradient * sum[0]) / n;
-          //  var correlation = (n * sum[3] - sum[0] * sum[1]) / Math.sqrt((n * sum[2] - sum[0] * sum[0]) * (n * sum[4] - sum[1] * sum[1]));
+			var intercept = (sum[1] / n) - (gradient * sum[0]) / n;
+			// var correlation = (n * sum[3] - sum[0] * sum[1]) / Math.sqrt((n * sum[2] - sum[0] * sum[0]) * (n * sum[4] - sum[1] * sum[1]));
 
-            for (var i = 0, len = data.length; i < len; i++) {
-                var coordinate = [_pointValue.x(data[i]), _pointValue.x(data[i]) * gradient + intercept];
-                results.push(coordinate);
-            }
-            results.sort(function(a, b) { return a[0] > b[0] ? 1 : -1; });
+			for (var i = 0, len = data.length; i < len; i++) {
+				var coordinate = [_pointValue.x(data[i]), _pointValue.x(data[i]) * gradient + intercept];
+				results.push(coordinate);
+			}
+			results.sort(function(a, b) { return a[0] > b[0] ? 1 : -1; });
 
-            var string = 'y = ' + Math.round(gradient*100) / 100 + 'x + ' + Math.round(intercept*100) / 100;
+			var string = 'y = ' + Math.round(gradient*100) / 100 + 'x + ' + Math.round(intercept*100) / 100;
 
-            return {equation: [gradient, intercept], points: results, string: string};
+			return {equation: [gradient, intercept], points: results, string: string};
 		},
 		logarithmic: function(data) {
-            var sum = [0, 0, 0, 0], n = 0, results = [];
+			var sum = [0, 0, 0, 0], n = 0, results = [];
 
-            for (len = data.length; n < len; n++) {
-              if (_pointValue.y(data[n]) != null) {
-                sum[0] += Math.log(_pointValue.x(data[n]));
-                sum[1] += _pointValue.y(data[n]) * Math.log(_pointValue.x(data[n]));
-                sum[2] += _pointValue.y(data[n]);
-                sum[3] += Math.pow(Math.log(data[n][0]), 2);
-              }
-            }
+			for (len = data.length; n < len; n++) {
+				if (_pointValue.y(data[n]) != null) {
+					sum[0] += Math.log(_pointValue.x(data[n]));
+					sum[1] += _pointValue.y(data[n]) * Math.log(_pointValue.x(data[n]));
+					sum[2] += _pointValue.y(data[n]);
+					sum[3] += Math.pow(Math.log(_pointValue.x(data[n])), 2);
+				}
+			}
 
-            var B = (n * sum[1] - sum[2] * sum[0]) / (n * sum[3] - sum[0] * sum[0]);
-            var A = (sum[2] - B * sum[0]) / n;
+			var B = (n * sum[1] - sum[2] * sum[0]) / (n * sum[3] - sum[0] * sum[0]);
+			var A = (sum[2] - B * sum[0]) / n;
 
-            for (var i = 0, len = data.length; i < len; i++) {
-                var coordinate = [_pointValue.x(data[i]), A + B * Math.log(_pointValue.x(data[i]))];
-                results.push(coordinate);
-            }
-            results.sort(function(a, b) { return a[0] > b[0] ? 1 : -1; });
+			for (var i = 0, len = data.length; i < len; i++) {
+				var coordinate = [_pointValue.x(data[i]), A + B * Math.log(_pointValue.x(data[i]))];
+				results.push(coordinate);
+			}
+			results.sort(function(a, b) { return a[0] > b[0] ? 1 : -1; });
 
-            var string = 'y = ' + Math.round(A*100) / 100 + ' + ' + Math.round(B*100) / 100 + ' ln(x)';
+			var string = 'y = ' + Math.round(A*100) / 100 + ' + ' + Math.round(B*100) / 100 + ' ln(x)';
 
-            return {equation: [A, B], points: results, string: string};
+			return {equation: [A, B], points: results, string: string};
 		},
 		power: function(data) {
 			var sum = [0, 0, 0, 0], n = 0, results = [];
 
 			for (len = data.length; n < len; n++) {
-            	if (data[n][2] != null) {
-            		sum[0] += Math.log(data[n][1]);
-            		sum[1] += Math.log(data[n][2]) * Math.log(data[n][1]);
-            		sum[2] += Math.log(data[n][2]);
-            		sum[3] += Math.pow(Math.log(data[n][0]), 2);
+            	if (_pointValue.y(data[n]) != null) {
+            		sum[0] += Math.log(_pointValue.x(data[n]));
+            		sum[1] += Math.log(_pointValue.y(data[n])) * Math.log(_pointValue.x(data[n]));
+            		sum[2] += Math.log(_pointValue.y(data[n]));
+            		sum[3] += Math.pow(Math.log(_pointValue.x(data[n])), 2);
             	}
             }
-
 			var B = (n * sum[1] - sum[2] * sum[0]) / (n * sum[3] - sum[0] * sum[0]);
 			var A = Math.pow(Math.E, (sum[2] - B * sum[0]) / n);
 
 			for (var i = 0, len = data.length; i < len; i++) {
-				var coordinate = [data[i][1], A * Math.pow(data[i][1] , B)];
+				var coordinate = [_pointValue.x(data[i]), A * Math.pow(_pointValue.x(data[i]), B)];
 				results.push(coordinate);
 			}
             results.sort(function(a, b) { return a[0] > b[0] ? 1 : -1; });
@@ -309,12 +276,12 @@ function sentio_chart_scatter_line() {
 
 			for (len = data.length; n < len; n++) {
 				if (data[n][2] != null) {
-					sum[0] += data[n][1];
-					sum[1] += data[n][2];
-					sum[2] += data[n][1] * data[n][1] * data[n][2];
-					sum[3] += data[n][2] * Math.log(data[n][2]);
-					sum[4] += data[n][1] * data[n][2] * Math.log(data[n][2]);
-					sum[5] += data[n][1] * data[n][2];
+					sum[0] += _pointValue.x(data[n]);
+					sum[1] += _pointValue.y(data[n]);
+					sum[2] += _pointValue.x(data[n]) * _pointValue.x(data[n]) * _pointValue.y(data[n]);
+					sum[3] += _pointValue.y(data[n]) * Math.log(_pointValue.y(data[n]));
+					sum[4] += _pointValue.x(data[n]) * _pointValue.y(data[n]) * Math.log(_pointValue.y(data[n]));
+					sum[5] += _pointValue.x(data[n]) * _pointValue.y(data[n]);
 				}
 			}
 
@@ -323,7 +290,7 @@ function sentio_chart_scatter_line() {
 			var B = (sum[1] * sum[4] - sum[5] * sum[3]) / denominator;
 
 			for (var i = 0, len = data.length; i < len; i++) {
-				var coordinate = [data[i][1], A * Math.pow(Math.E, B * data[i][1])];
+				var coordinate = [_pointValue.x(data[i]), A * Math.pow(Math.E, B * _pointValue.x(data[i]))];
 				results.push(coordinate);
 			}
             results.sort(function(a, b) { return a[0] > b[0] ? 1 : -1; });
@@ -336,48 +303,47 @@ function sentio_chart_scatter_line() {
 			if(typeof order == 'undefined'){
 				order = 2;
 			}
-            var lhs = [], rhs = [], results = [], a = 0, b = 0, i = 0, k = order + 1, l;
+			var lhs = [], rhs = [], results = [], a = 0, b = 0, i = 0, k = order + 1, l, len;
 
-                    for (; i < k; i++) {
-                       for (l = 0, len = data.length; l < len; l++) {
-                          if (data[l][2] != null) {
-                           a += Math.pow(data[l][1], i) * data[l][2];
-                          }
-                        }
-                        lhs.push(a);
-                        a = 0;
-                        var c = [];
-                        for (var j = 0; j < k; j++) {
-                           for (l = 0, len = data.length; l < len; l++) {
-                              if (data[l][2] != null) {
-                               b += Math.pow(data[l][1], i + j);
-                              }
-                            }
-                            c.push(b), b = 0;
-                        }
-                        rhs.push(c);
-                    }
-            rhs.push(lhs);
+			for (; i < k; i++) {
+				for (l = 0, len = data.length; l < len; l++) {
+					if (_pointValue.y(data[l]) != null) {
+						a += Math.pow(_pointValue.x(data[l]), i) * _pointValue.y(data[l]);
+					}
+				}
+				lhs.push(a);
+				a = 0;
+				var c = [];
+				for (var j = 0; j < k; j++) {
+					for (l = 0, len = data.length; l < len; l++) {
+						if (_pointValue.y(data[l]) != null) {
+							b += Math.pow(_pointValue.x(data[l]), i + j);
+						}
+					}
+					c.push(b);
+					b = 0;
+				}
+				rhs.push(c);
+			}
+			rhs.push(lhs);
 
-           var equation = gaussianElimination(rhs, k);
+			var equation = gaussianElimination(rhs, k);
+			for (i = 0, len = data.length; i < len; i++) {
+				var answer = 0;
+				for (var w = 0; w < equation.length; w++) {
+					answer += equation[w] * Math.pow(_pointValue.x(data[i]), w);
+				}
+				results.push([data[i][1], answer]);
+			}
+            results.sort(function(a, b) { return a[0] > b[0] ? 1 : -1; });
 
-                for (var i = 0, len = data.length; i < len; i++) {
-                    var answer = 0;
-                    for (var w = 0; w < equation.length; w++) {
-                        answer += equation[w] * Math.pow(data[i][1], w);
-                    }
-                    results.push([data[i][1], answer]);
-                }
-
-                var string = 'y = ';
-
-                for(var i = equation.length-1; i >= 0; i--){
-                  if(i > 1) string += Math.round(equation[i] * Math.pow(10, i)) / Math.pow(10, i)  + 'x^' + i + ' + ';
-                  else if (i == 1) string += Math.round(equation[i]*100) / 100 + 'x' + ' + ';
-                  else string += Math.round(equation[i]*100) / 100;
-                }
-
-            return {equation: equation, points: results, string: string};
+			var string = 'y = ';
+			for(i = equation.length-1; i >= 0; i--){
+				if(i > 1) string += Math.round(equation[i] * Math.pow(10, i)) / Math.pow(10, i)  + 'x^' + i + ' + ';
+				else if (i == 1) string += Math.round(equation[i]*100) / 100 + 'x' + ' + ';
+				else string += Math.round(equation[i]*100) / 100;
+			}
+			return {equation: equation, points: results, string: string};
 		}
 	};
 
@@ -385,6 +351,7 @@ function sentio_chart_scatter_line() {
 	function _instance(selection){}
 
 	function handleSVGMove() {
+		/*jshint validthis: true */
 		var mouse = d3.mouse(this);
 		var x = mouse[0] - _margin.right;
 		var xValue = _scale.x.invert(x);
@@ -521,20 +488,19 @@ function sentio_chart_scatter_line() {
 
 	function generatePaths(visibleData) {
 		_paths = [];
+		var eq, points;
 		if (_lineGrouping) {
 			var groupedData = groupPoints(visibleData);
 			for (var groupName in groupedData) {
 				if (groupedData[groupName].length > 1) {
-					var eq = _regression_fn[_lineMethod](groupedData[groupName]);
-					// console.log(eq);
-					var points = _generatePoints(eq);
-					// console.log(points);
+					eq = _regression_fn[_lineMethod](groupedData[groupName]);
+					points = _generatePoints(eq);
 					_paths.push({id: groupName, data: points, color: _scale.color(groupName), eq: eq});
 				}
 			}
 		} else {
-			var eq = _regression_fn[_lineMethod](visibleData);
-			var points = _generatePoints(eq);
+			eq = _regression_fn[_lineMethod](visibleData);
+			points = _generatePoints(eq);
 			_paths.push({id: 'scatter_group_path', data: points, color: '#ff69b4', eq: eq});
 		}
 	}
@@ -567,7 +533,7 @@ function sentio_chart_scatter_line() {
 		updateAxes();
 		updateLegend();
 		updatePoints();
-		// updatePaths();
+		updatePaths();
 
 		return _instance;
 	};
@@ -616,7 +582,7 @@ function sentio_chart_scatter_line() {
 			.attr('stroke', function(d) { return _scale.color(_pointValue.group(d)); });
 
 		xAxisTickJoin.transition()
-			.attr('opacity', function(d) { return _groups.hidden.indexOf(_pointValue.group(d)) === -1 ? '1' : '0'})
+			.attr('opacity', function(d) { return _groups.hidden.indexOf(_pointValue.group(d)) === -1 ? '1' : '0'; })
 			.attr('x1', function(d) { return _scale.x(_pointValue.x(d)); })
 			.attr('x2', function(d) { return _scale.x(_pointValue.x(d)); });
 
@@ -639,7 +605,7 @@ function sentio_chart_scatter_line() {
 			.attr('stroke', function(d) { return _scale.color(_pointValue.group(d)); });
 
 		yAxisTickJoin.transition()
-			.attr('opacity', function(d) { return _groups.hidden.indexOf(_pointValue.group(d)) === -1 ? '1' : '0'})
+			.attr('opacity', function(d) { return _groups.hidden.indexOf(_pointValue.group(d)) === -1 ? '1' : '0'; })
 			.attr('y1', function(d) { return _scale.y(_pointValue.y(d)); })
 			.attr('y2', function(d) { return _scale.y(_pointValue.y(d)); });
 
@@ -788,7 +754,7 @@ function sentio_chart_scatter_line() {
 			.on('mouseleave', handlePointExit);
 
 		pointJoin.transition()
-			.attr('opacity', function(d) { return _groups.hidden.indexOf(_pointValue.group(d)) === -1 ? '1' : '0'})
+			.attr('opacity', function(d) { return _groups.hidden.indexOf(_pointValue.group(d)) === -1 ? '1' : '0'; });
 
 		var circleEnter = pointEnter.append('circle');
 		var circleUpdate = pointJoin.select('circle');
@@ -837,7 +803,7 @@ function sentio_chart_scatter_line() {
 			.attr('stroke-width', '.5')
 			.attr('stroke', 'white')
 			.attr('fill', function(d) { return d3.rgb(d.color).brighter(2); })
-			.attr('opacity', '0')
+			.attr('opacity', '0');
 
 		pathJoin.exit().transition().attr('opacity', '0').remove();
 	}

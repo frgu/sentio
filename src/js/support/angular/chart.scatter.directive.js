@@ -54,11 +54,11 @@ function($document, $window, $timeout, $log) {
 			});
 
 			scope.$watch('showLegend', function(n, o) {
-				if (null == 0 && null == n){ return; }
+				if (null == o && null == n){ return; }
 				
 				chart.showLegend(n);
 				redraw();
-			})
+			});
 
 			// Manage resizing the chart
 			var resizeWidth = (null != attrs.sentioResizeWidth);
