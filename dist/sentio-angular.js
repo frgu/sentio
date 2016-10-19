@@ -154,6 +154,7 @@ function($document, $window, $timeout, $log) {
 		restrict : 'A',
 		scope : {
 			model: '=sentioModel',
+			axes: '=sentioAxes',
 			markers: '=sentioMarkers',
 			yExtent: '=sentioYExtent',
 			xExtent: '=sentioXExtent',
@@ -266,6 +267,14 @@ function($document, $window, $timeout, $log) {
 				if(null == o && null == n){ return; }
 
 				line.data(n);
+				line.resize();
+				redraw();
+			});
+
+			scope.$watchCollection('axes', function(n, o) {
+				if(null == o && null == n){ return; }
+
+				line.axes(n);
 				redraw();
 			});
 
