@@ -3406,21 +3406,20 @@ function sentio_line_line() {
 	var _margin = { top: 20, right: 60, bottom: 50, left: 60 };
 	var _height = 500, _width = 800;
 
-	var lockYAxis = true;	// Set whether the Y axis will automatically change as data changes.
-	var lockedY = 1;		// Set default max Y axis value.
-	var stacked = false;	// Set whether different series will stack on top of eachother rather than overlay.
-	var showMarkers = true;	// Set default boolean for showing markers
+	var _lockYAxis = true;	// Set whether the Y axis will automatically change as data changes.
+	var _lockedY = 1;		// Set default max Y axis value.
+	var _stacked = false;	// Set whether different series will stack on top of eachother rather than overlay.
+	var _showMarkers = true;	// Set default boolean for showing markers
 
 	// Values for tracking mouse movements on graph and selected elements.
-	var targetX;
-	var selected = {
+	var _selected = {
 		time: 0,
 		points: [],
 		markers: []
 	};
 
 	// Container for legend information to be passed out of sentio.
-	var legend_content = {
+	var _legend_content = {
 		series: undefined,
 		markers: undefined,
 	};
@@ -3428,7 +3427,7 @@ function sentio_line_line() {
 	/*
 	 * Array of series slugs that are hidden from the user.
 	 */
-	var hidden_series = [];
+	var _hidden_series = [];
 
 	/*
 	 * Callback function for hovers over the markers. Invokes this function
@@ -3450,15 +3449,16 @@ function sentio_line_line() {
 	var _value = {
 		x: function(d) { return d[0]; },
 		y: function(d) { return d[1]; },
-		y_stacked: function(d) { return d[2]; }
+		y__stacked: function(d) { return d[2]; }
 	};
 
 	// Default accessors for point information.
 	var _pointValue = {
 		x: function(d) { return d[0]; },
-		y: function(d) { return stacked ? d[2] : d[1]; },
+		y: function(d) { return _stacked ? d[2] : d[1]; },
 		series: function(d) { return d[3]; },
-		slug: function(d) { return d[4]; }
+		slug: function(d) { return d[4]; },
+		color_index: function(d) { return d[5]; }
 	};
 
 	// Accessors for the positions of the markers
@@ -3473,16 +3473,10 @@ function sentio_line_line() {
 	var _extent = {
 		x: sentio.util.extent({
 			defaultValue: [now - 60000*5, now],
-			getValue: function(d) { return d[1][0]; }
+			getValue: function(d) { return _pointValue.x(d[1]); }
 		}),
 		y: sentio.util.extent({
-			getValue: function(d) { 
-				var ret = 0;
-				if (hidden_series.indexOf(d[0]) === -1) {
-					ret = stacked ? d[1][2] : d[1][1]; 
-				}
-				return ret;
-			}
+			getValue: function(d) { return _hidden_series.indexOf(d[0]) === -1 ? _pointValue.y(d[1]) : 0; }
 		})
 	};
 	var _multiExtent = sentio.util.multiExtent().values(function(d) { 
@@ -3501,7 +3495,7 @@ function sentio_line_line() {
 	};
 
 	// Bisector for hover line
-	var bisectDate = d3.bisector(function(d) { return d[0]; }).left;
+	var _bisectDate = d3.bisector(function(d) { return d[0]; }).left;
 
 	// Default Axis definitions
 	var _axis = {
@@ -3515,7 +3509,9 @@ function sentio_line_line() {
 			.scale(_scale.y)
 			.orient('left')
 			.innerTickSize(-_width)
-			.ticks(10)
+			.ticks(10),
+		xLabel: undefined,
+		yLabel: undefined
 	};
 
 	// g elements
@@ -3524,6 +3520,8 @@ function sentio_line_line() {
 		g: {
 			xAxis: undefined,
 			yAxis: undefined,
+			xLabel: undefined,
+			yLabel: undefined,
 			mouseContainer: undefined,
 			hoverLine: undefined,
 			container: undefined,
@@ -3544,7 +3542,7 @@ function sentio_line_line() {
 		return _scale.x(_value.x(d));
 	});
 	_line.y(function(d) {
-		return stacked ? _scale.y(_value.y_stacked(d)) : _scale.y(_value.y(d));
+		return _stacked ? _scale.y(_value.y__stacked(d)) : _scale.y(_value.y(d));
 	});
 
 	// Area generator for the plot
@@ -3553,7 +3551,7 @@ function sentio_line_line() {
 		return _scale.x(_value.x(d));
 	});
 	_area.y1(function(d) {
-		return stacked ? _scale.y(_value.y_stacked(d)) : _scale.y(_value.y(d));
+		return _stacked ? _scale.y(_value.y__stacked(d)) : _scale.y(_value.y(d));
 	});
 
 	// Brush filter
@@ -3626,10 +3624,6 @@ function sentio_line_line() {
 		_element.g.container = _element.svg.append('g')
 			.attr('class', 'g-main');
 
-		// Append groups for the axes
-		_element.g.xAxis = _element.g.container.append('g').attr('class', 'x axis');
-		_element.g.yAxis = _element.g.container.append('g').attr('class', 'y axis');
-
 		// Append a group for the markers
 		_element.g.markers = _element.g.container.append('g').attr('class', 'markers').attr('clip-path', 'url(#marker_' + _id + ')');
 
@@ -3637,6 +3631,20 @@ function sentio_line_line() {
 		_element.g.plots = _element.g.container.append('g').attr('class', 'plots').attr('clip-path', 'url(#plot_' + _id + ')');
 
 		_element.g.points = _element.g.container.append('g').attr('class', 'points').attr('clip-path', 'url(#point_' + _id + ')');
+
+		// Append groups for the axes
+		_element.g.xAxis = _element.g.container.append('g').attr('class', 'x axis');
+		_element.g.yAxis = _element.g.container.append('g').attr('class', 'y axis');
+		_element.g.xLabel = _element.svg.append('text')
+			.attr('class', 'axis-label')
+			.attr('text-anchor', 'end');
+		_element.g.yLabel = _element.svg.append('text')
+			.attr('class', 'axis-label')
+			.attr('text-anchor', 'end')
+			.attr('x', -(_margin.top + 35))
+			.attr('y', _margin.left + 5)
+			.attr('dy', '.75em')
+			.attr('transform', 'rotate(-90)');
 
 		// Append elements for capturing mouse events.
 		_element.g.mouseContainer = _element.g.container.append('rect')
@@ -3676,7 +3684,7 @@ function sentio_line_line() {
 	};
 
 	/* 
-	 * Generates stacked y values in the order that _data arrives in.
+	 * Generates _stacked y values in the order that _data arrives in.
 	 */
 	function stack() {
 		for (var i = 0; i < _data.length; i++) {
@@ -3693,7 +3701,7 @@ function sentio_line_line() {
 		_points = [];
 		for (var i = 0; i < _data.length; i++) {
 			for (var j = 0; j < _data[i].data.length; j++) {
-				_points.push([_data[i].data[j][0], _data[i].data[j][1], _data[i].data[j][2], _data[i].key, _data[i].name]);
+				_points.push([_data[i].data[j][0], _data[i].data[j][1], _data[i].data[j][2], _data[i].key, _data[i].name, i]);
 			}
 		}
 	}
@@ -3705,7 +3713,7 @@ function sentio_line_line() {
 		_element.g.markers
 			.selectAll('.marker')
 			.transition()
-			.attr('opacity', showMarkers ? '1' : '0');
+			.attr('opacity', _showMarkers ? '1' : '0');
 	}
 
 	/*
@@ -3715,10 +3723,18 @@ function sentio_line_line() {
 		if(!arguments.length) { return _data; }
 		_data = v;
 
-		// Update stacked and point data every time it is available.
+		// Update _stacked and point data every time it is available.
 		stack();
 		generatePoints();
 
+		return _instance;
+	};
+
+	_instance.axes = function(v) {
+		if(!arguments.length) { return _axis; }
+
+		_axis.xLabel = v[0];
+		_axis.yLabel = v[1];
 		return _instance;
 	};
 
@@ -3806,14 +3822,14 @@ function sentio_line_line() {
 	function handleMouseMove() {
 		if (!_data[0]) {return;}
 
-		selected.points = [];
-		selected.markers = [];
+		_selected.points = [];
+		_selected.markers = [];
 
 		// Calculate nearest point and 
 		/*jshint validthis: true */
 		var mouse = d3.mouse(this);
 		var mouseDate = _scale.x.invert(mouse[0]);
-		var index = bisectDate(_data[0].data, mouseDate); // Probably should store x axis info instead
+		var index = _bisectDate(_data[0].data, mouseDate); // Probably should store x axis info instead
 		var targetX = mouse[0];
 		var onPoint = false;
 
@@ -3832,7 +3848,7 @@ function sentio_line_line() {
 		}
 		// Detect markers using mouse coordinate instead of index.
 		var targetXDate = _scale.x.invert(targetX);
-		selected.time = targetXDate;
+		_selected.time = targetXDate;
 
 		// End setup for mouse control
 
@@ -3841,14 +3857,14 @@ function sentio_line_line() {
 			for (var i = 0; i < _data.length; i++) {
 				var pnt = _data[i].data.find(pntEql);
 				if (pnt) {
-					selected.points.push(pnt.concat([_data[i].key, _data[i].name]));
+					_selected.points.push(pnt.concat([_data[i].key, _data[i].name]));
 				}
 			}
 		}
 
 		for (var j = _markers.values.length-1; j >= 0; j--) {
 			if (targetXDate >= _markers.values[j][2] && targetXDate <= _markers.values[j][3]) {
-				selected.markers.push(_markers.values[j]);	
+				_selected.markers.push(_markers.values[j]);	
 			}
 		}
 
@@ -3861,7 +3877,7 @@ function sentio_line_line() {
 		};
 
 		for (var k = 0; k < _markers.values.length; k++) {
-			var ret = selected.markers.find(markerFindFunction(_markerValue.slug(_markers.values[k])));
+			var ret = _selected.markers.find(markerFindFunction(_markerValue.slug(_markers.values[k])));
 			if (ret) {
 				_element.g.markers.select('.marker-line-'+_markerValue.slug(_markers.values[k])).transition().duration(100)
 					.attr('fill', marker_default_fn );
@@ -3871,8 +3887,8 @@ function sentio_line_line() {
 			}
 		}
 
-		if (selected.points.length > 0 || (mouse[1] < 45 && selected.markers.length > 0)) {
-			_element.tooltip.html(invokeHoverCallback({d: selected}));
+		if (_selected.points.length > 0 || (mouse[1] < 45 && _selected.markers.length > 0)) {
+			_element.tooltip.html(invokeHoverCallback({d: _selected}));
 			var tooltip_width = _element.tooltip.node().getBoundingClientRect().width;
 			_element.tooltip.style("top", (mouse[1]+10)+"px").style("left",(mouse[0]+40-(tooltip_width/2))+"px");
 			_element.tooltip.style("visibility", "visible");
@@ -3960,8 +3976,8 @@ function sentio_line_line() {
 		// Update the y domain (based on configuration and data)
 		// When locked, the y axis will change if the extent is larger.
 		var y = multiExtent(_data, _extent.y)[1];
-		if (lockYAxis) { y = y > lockedY ? y : lockedY; }
-		lockedY = y;
+		if (_lockYAxis) { y = y > _lockedY ? y : _lockedY; }
+		_lockedY = y;
 		_scale.y.domain([0,y]);
 
 		// Update the plot elements
@@ -3979,6 +3995,13 @@ function sentio_line_line() {
 
 	function updateAxes(x) {
 		var dayCount = Math.ceil(Math.abs((x[1] - x[0]) / oneDay)) + 1;
+
+		_element.g.xLabel.transition()
+			.attr('x', _width - _margin.left - _margin.right + 55)
+			.attr('y', _height - _margin.top - _margin.bottom + 5)
+			.text(_axis.xLabel);
+		_element.g.yLabel.transition()
+			.text(_axis.yLabel);
 
 		// Change tick type depending on concentration of ticks to prevent overlapping labels and compressed graphs
 		var concentration = _width / dayCount;
@@ -4041,7 +4064,7 @@ function sentio_line_line() {
 			.attr('stroke', function(d, i) { return _scale.color(i); })
 			.attr('stroke-width', '2px')
 			.attr('stroke-opacity', function(d) {
-				return hidden_series.indexOf(d.key) === -1 ? '0.9' : '0';
+				return _hidden_series.indexOf(d.key) === -1 ? '0.9' : '0';
 			})
 			.attr('fill', 'none');
 		plotEnter.append('g').append('path')
@@ -4050,7 +4073,7 @@ function sentio_line_line() {
 			.attr('stroke', 'none')
 			.attr('fill', function(d, i) { return _scale.color(i); })
 			.attr('fill-opacity', function(d) {
-				return hidden_series.indexOf(d.key) === -1 ? '0.05' : '0';
+				return _hidden_series.indexOf(d.key) === -1 ? '0.05' : '0';
 			});
 
 		var lineUpdate = plotJoin.select('.line');
@@ -4059,12 +4082,12 @@ function sentio_line_line() {
 		// // Update
 		lineUpdate.transition()
 			.attr('stroke-opacity', function(d) {
-				return hidden_series.indexOf(d.key) === -1 ? '0.9' : '0';
+				return _hidden_series.indexOf(d.key) === -1 ? '0.9' : '0';
 			})
 			.attr('d', function(d) { return _line(d.data); });
 		areaUpdate.transition()
 			.attr('fill-opacity', function(d) {
-				return hidden_series.indexOf(d.key) === -1 ? '0.05' : '0';
+				return _hidden_series.indexOf(d.key) === -1 ? '0.05' : '0';
 			})
 			.attr('d', function(d) { return _area.y0(_scale.y.range()[0])(d.data); });
 
@@ -4083,7 +4106,7 @@ function sentio_line_line() {
 	 * Stores legend information from data series.
 	 */
 	function updateLegend() {
-		legend_content.series = _data.map(function(series, i) {
+		_legend_content.series = _data.map(function(series, i) {
 			var color = _element.g.plots.select('#path-'+series.key).attr('stroke');
 			return {
 				key: series.key,
@@ -4093,7 +4116,7 @@ function sentio_line_line() {
 			};
 		});
 
-		invokeLegendCallback({d: legend_content});
+		invokeLegendCallback({d: _legend_content});
 	}
 
 	/*
@@ -4121,20 +4144,15 @@ function sentio_line_line() {
 		circleEnter
 			.attr('class', function(d) { return 'pt-'+_pointValue.series(d); })
 			.attr('r', 3)
-			.attr('stroke', 'white')
-			.attr('stroke-opacity', function(d) {
-				return hidden_series.indexOf(_pointValue.series(d)) === -1 ? '1' : '0'; // Hide points if related series is hidden.
-			})
-			.attr('stroke-width', 2)
-			.attr('fill', 'white')
-			.attr('fill-opacity', 0);
+			.attr('fill', function(d) { return d3.rgb(_scale.color(_pointValue.color_index(d))).darker(); })
+			.attr('fill-opacity', 1);
 
 		circleUpdate.transition()
 			.attr('class', function(d) { return 'pt-'+_pointValue.series(d); })
 			.attr('cx', function(d) {return _scale.x(_pointValue.x(d));})
 			.attr('cy', function(d) {return _scale.y(_pointValue.y(d));})
 			.attr('stroke-opacity', function(d) {
-				return hidden_series.indexOf(_pointValue.series(d)) === -1 ? '1' : '0'; // Hide points if related series is hidden.
+				return _hidden_series.indexOf(_pointValue.series(d)) === -1 ? '1' : '0'; // Hide points if related series is hidden.
 			});
 
 		//exit
@@ -4296,15 +4314,15 @@ function sentio_line_line() {
 	/*
 	 * Updates series and marker visuals when toggled to hide or show.
 	 *
-	 * Also updates stacked values for the data to show updated stack data when a series is hidden.
+	 * Also updates _stacked values for the data to show updated stack data when a series is hidden.
 	 */
 	_instance.toggleSeries = function(s) {
 		var index = -1;
-		var h_index = hidden_series.indexOf(s); // Determines if series is already hidden or not.
+		var h_index = _hidden_series.indexOf(s); // Determines if series is already hidden or not.
 
 		/*
 		 * Iterates through each data series to update values.  It first finds the index of the toggled series
-		 * based off of the input key.  Then every subsequent series has its stacked values added or subtracted by 
+		 * based off of the input key.  Then every subsequent series has its _stacked values added or subtracted by 
 		 * the toggled series to update values.
 		 * 
 		 * Probably a better way to do this.  There might be incorrect behavior depending on the order of toggled series.
@@ -4327,9 +4345,9 @@ function sentio_line_line() {
 
 		// Update hidden series array 
 		if (h_index == -1) {
-			hidden_series.push(s);
+			_hidden_series.push(s);
 		} else {
-			hidden_series.splice(h_index, 1);
+			_hidden_series.splice(h_index, 1);
 		}
 
 		// Regenerate values for points.
@@ -4340,20 +4358,20 @@ function sentio_line_line() {
 
 	// Basic Getters/Setters
 	_instance.yLock = function(l) {
-		if(!arguments.length) { return lockYAxis; }
-		lockYAxis = l;
+		if(!arguments.length) { return _lockYAxis; }
+		_lockYAxis = l;
 		_instance.redraw();
 		return _instance;
 	};
 	_instance.stacked = function(s) {
-		if(!arguments.length) { return stacked; }
-		stacked = s;
+		if(!arguments.length) { return _stacked; }
+		_stacked = s;
 		_instance.redraw();
 		return _instance;
 	};
 	_instance.showMarkers = function(b) {
-		if (!arguments.length) { return showMarkers; }
-		showMarkers = b;
+		if (!arguments.length) { return _showMarkers; }
+		_showMarkers = b;
 		toggleMarkers();
 		return _instance;
 	};
