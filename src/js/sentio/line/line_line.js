@@ -754,7 +754,7 @@ function sentio_line_line() {
 			.attr('class', function(d) { return 'pt-'+_pointValue.series(d); })
 			.attr('cx', function(d) {return _scale.x(_pointValue.x(d));})
 			.attr('cy', function(d) {return _scale.y(_pointValue.y(d));})
-			.attr('stroke-opacity', function(d) {
+			.attr('fill-opacity', function(d) {
 				return _hidden_series.indexOf(_pointValue.series(d)) === -1 ? '1' : '0'; // Hide points if related series is hidden.
 			});
 

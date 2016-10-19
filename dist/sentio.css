@@ -142,7 +142,6 @@
 .sentio.line .mouse-container {
 	visibility: hidden;
 	pointer-events: all;
-	cursor: crosshair;
 }
 
 .sentio.line .hover-line {
@@ -150,16 +149,17 @@
 	stroke-width: 1.5;
 }
 
-.line_tooltip {
+.sentio.line .line_tooltip {
 	visibility: hidden;
 	position: absolute;
-	z-index: 2000;
-	background-color: black;
-	background-color: rgba(0,0,0,0.8);
+	background-color: #CCC;
 	border-radius: 5px;
 	padding: 3px;
 	pointer-events: none;
 	white-space: nowrap;
+	color: black;
+	z-index: 9990;
+	opacity: 0.8;
 }
 
 .sentio.line .axis line {
