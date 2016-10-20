@@ -13,7 +13,8 @@ function($document, $window, $timeout, $log) {
 			resizeHeight: '@sentioResizeHeight',
 			lineGrouping: '=sentioLineGrouping',
 			lineMethod: '=sentioLineMethod',
-			showLegend: '=sentioShowLegend'
+			showLegend: '=sentioShowLegend',
+			tooltipCallbackFn: '&sentioTooltipCallbackFn'
 		},
 		replace : false,
 		link : function(scope, element, attrs, controller) {
@@ -61,6 +62,12 @@ function($document, $window, $timeout, $log) {
 				
 				chart.showLegend(n);
 				redraw();
+			});
+
+			scope.$watch('tooltipCallbackFn', function(n, o) {
+				if (null != scope.tooltipCallbackFn) {
+					chart.tooltipCallback(scope.tooltipCallbackFn);
+				}
 			});
 
 			// Manage resizing the chart

@@ -1493,6 +1493,7 @@ function sentio_chart_matrix() {
 
 	return _instance;
 }
+
 sentio.chart.scatterLine = sentio_chart_scatter_line;
 function sentio_chart_scatter_line() {
 	'use strict';
@@ -1505,6 +1506,9 @@ function sentio_chart_scatter_line() {
 	var _lineGrouping = false;
 	var _lineMethod = 'linear';
 	var _showLegend = true;
+
+	var _xBuffer = 1;
+	var _yBuffer = 1;
 
 	var _data = [];
 	var _groups = {
@@ -1525,9 +1529,10 @@ function sentio_chart_scatter_line() {
 		id: function(d) { return d[0]; },
 		x: function(d) { return d[1]; },
 		y: function(d) { return d[2]; },
-		group: function(d) { return d[3]; },
-		label: function(d) { return d[4]; }
+		group: function(d) { return d[3]; }
 	};
+
+	var _tooltipCallback = null;
 
 	// Extents
 	var _extent = {
@@ -1554,8 +1559,7 @@ function sentio_chart_scatter_line() {
 			.ticks(5),
 		labels: {
 			x: undefined,
-			y: undefined,
-			m: undefined
+			y: undefined
 		}
 	};
 
@@ -1615,9 +1619,9 @@ function sentio_chart_scatter_line() {
 
 		a = eq.equation[0];
 		b = eq.equation[1];
-		start = eq.points[0][0]-1;
-		end = eq.points[eq.points.length-1][0]+1;
-		range = _scale.x.domain()[1]-_scale.x.domain()[0];
+		start = eq.points[0][0]-(_xBuffer/2);
+		end = eq.points[eq.points.length-1][0]+(_xBuffer/2);
+		range = end-start;
 		steps = Math.ceil((((end-start)/range)*(_width - _margin.left - _margin.right))/2);
 
 		if (_lineMethod === 'linear') {
@@ -1842,6 +1846,12 @@ function sentio_chart_scatter_line() {
 		}
 	};
 
+	function invokeTooltipCallback(d) { 
+		if (null != _tooltipCallback) {
+			return _tooltipCallback(d);
+		}
+	}
+
 	// Chart create/init method
 	function _instance(selection){}
 
@@ -2012,15 +2022,15 @@ function sentio_chart_scatter_line() {
 
 		var xDomain = _extent.x.getExtent(visibleData);
 		var yDomain = _extent.y.getExtent(visibleData);
-		var xBuffer = xDomain[1] - xDomain[0] === 0 ? 5 : Math.ceil((xDomain[1] - xDomain[0]) * 0.1);
-		var yBuffer = yDomain[1] - yDomain[0] === 0 ? 5 : Math.ceil((yDomain[1] - yDomain[0]) * 0.1);
+		_xBuffer = xDomain[1] - xDomain[0] === 0 ? 5 : Math.ceil((xDomain[1] - xDomain[0]) * 0.1);
+		_yBuffer = yDomain[1] - yDomain[0] === 0 ? 5 : Math.ceil((yDomain[1] - yDomain[0]) * 0.1);
 
-		xDomain[0] -= xBuffer;
-		xDomain[1] += xBuffer;
+		xDomain[0] -= _xBuffer;
+		xDomain[1] += _xBuffer;
 		_scale.x.domain(xDomain);
 
-		yDomain[0] -= yBuffer;
-		yDomain[1] += yBuffer;
+		yDomain[0] -= _yBuffer;
+		yDomain[1] += _yBuffer;
 		_scale.y.domain(yDomain);
 
 		generatePaths(visibleData);
@@ -2201,16 +2211,12 @@ function sentio_chart_scatter_line() {
 			.attr('y2', _scale.y(_pointValue.y(d)) )
 			.attr('stroke', _scale.color(_pointValue.group(d)) );
 
-		// Move and show tooltip
-		_element.tooltip.html(
-			'<b>' + _pointValue.label(d) + '</b><br>' + 
-			_axis.labels.x+': '+_pointValue.x(d)+'<br>' + 
-			_axis.labels.y+': '+_pointValue.y(d)+'<br>' +
-			_axis.labels.m+': '+(_pointValue.y(d)/_pointValue.x(d)));
+		_element.tooltip.html(invokeTooltipCallback({d: d}));
 		var tooltip_width = _element.tooltip.node().getBoundingClientRect().width;
+		var tooltip_height = _element.tooltip.node().getBoundingClientRect().height;
 		_element.tooltip
-			.style('top', (_scale.y(_pointValue.y(d)) + _margin.top + _margin.bottom - 30) + 'px')
-			.style('left', (_scale.x(_pointValue.x(d)) + _margin.left + _margin.right - 20 - tooltip_width) + 'px');
+			.style('top', (_scale.y(_pointValue.y(d)) + 2*_margin.top+40 - tooltip_height) + 'px')
+			.style('left', (_scale.x(_pointValue.x(d)) + 2*_margin.left-30 - tooltip_width) + 'px');
 		_element.tooltip.transition().duration(1000).style('visibility', 'visible');
 	}
 
@@ -2256,12 +2262,12 @@ function sentio_chart_scatter_line() {
 
 		circleEnter
 			.attr('r', '5')
-			.attr('fill', function(d, i) { return _scale.color(_pointValue.group(d)); })
 			.attr('fill-opacity', '0.5')
-			.attr('stroke', function(d, i) { return d3.rgb(_scale.color(_pointValue.group(d))).brighter(); })
 			.attr('stroke-width', '1');
 
 		circleUpdate.transition()
+			.attr('fill', function(d, i) { return _scale.color(_pointValue.group(d)); })
+			.attr('stroke', function(d, i) { return d3.rgb(_scale.color(_pointValue.group(d))).brighter(); })
 			.attr('cx', function(d) { return _scale.x(_pointValue.x(d)); })
 			.attr('cy', function(d) { return _scale.y(_pointValue.y(d)); });
 
@@ -2327,6 +2333,11 @@ function sentio_chart_scatter_line() {
 	_instance.showLegend = function(v) {
 		if(!arguments.length) { return _showLegend; }
 		_showLegend = v;
+		return _instance;
+	};
+	_instance.tooltipCallback = function(v) { 
+		if(!arguments.length) { return _tooltipCallback; }
+		_tooltipCallback = v;
 		return _instance;
 	};
 
