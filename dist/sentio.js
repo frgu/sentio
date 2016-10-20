@@ -2218,7 +2218,8 @@ function sentio_chart_scatter_line() {
 			// .style('top', (_scale.y(_pointValue.y(d)) + 2*_margin.top+50) + 'px')
 			.style('left', (_scale.x(_pointValue.x(d)) + 2*_margin.left-20) + 'px')
 			.style('top', (_scale.y(_pointValue.y(d)) + 2*_margin.top+40 - tooltip_height) + 'px');
-			// .style('left', (_scale.x(_pointValue.x(d)) + 2*_margin.left-30 - tooltip_width) + '
+			// .style('left', (_scale.x(_pointValue.x(d)) + 2*_margin.left-30 - tooltip_width) + 'px');
+		_element.tooltip.transition().duration(1000).style('visibility', 'visible');
 	}
 
 	function handlePointExit(d) {
