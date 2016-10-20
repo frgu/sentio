@@ -720,9 +720,10 @@ function sentio_chart_scatter_line() {
 		var tooltip_width = _element.tooltip.node().getBoundingClientRect().width;
 		var tooltip_height = _element.tooltip.node().getBoundingClientRect().height;
 		_element.tooltip
-			.style('top', (_scale.y(_pointValue.y(d)) + 2*_margin.top+40 - tooltip_height) + 'px')
-			.style('left', (_scale.x(_pointValue.x(d)) + 2*_margin.left-30 - tooltip_width) + 'px');
-		_element.tooltip.transition().duration(1000).style('visibility', 'visible');
+			// .style('top', (_scale.y(_pointValue.y(d)) + 2*_margin.top+50) + 'px')
+			.style('left', (_scale.x(_pointValue.x(d)) + 2*_margin.left-20) + 'px')
+			.style('top', (_scale.y(_pointValue.y(d)) + 2*_margin.top+40 - tooltip_height) + 'px');
+			// .style('left', (_scale.x(_pointValue.x(d)) + 2*_margin.left-30 - tooltip_width) + '
 	}
 
 	function handlePointExit(d) {
