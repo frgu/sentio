@@ -415,7 +415,8 @@ function($document, $window, $timeout, $log) {
 			pointHoverFn: '&sentioPointHoverFn',
 			legendFn: '&sentioLegendFn',
 			yLock: '=sentioYLock',
-			stacked: '=sentioStacked'
+			stacked: '=sentioStacked',
+			resetYAxisMax: '=sentioResetYAxisMax'
 		},
 		replace : false,
 		link : function(scope, element, attrs, controller) {
@@ -512,7 +513,7 @@ function($document, $window, $timeout, $log) {
 			scope.$watchCollection('model', function(n, o){
 				if(null == o && null == n){ return; }
 
-				line.data(n);
+				line.data(n, scope.resetYAxisMax);
 				line.resize();
 				redraw();
 			});

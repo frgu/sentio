@@ -3732,8 +3732,9 @@ function sentio_line_line() {
 	/*
 	 * Set the _instance data
 	 */
-	_instance.data = function(v) {
+	_instance.data = function(v, r) {
 		if(!arguments.length) { return _data; }
+		if(r) _lockedY = 1;
 		_data = v;
 
 		// Update _stacked and point data every time it is available.
