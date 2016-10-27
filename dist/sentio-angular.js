@@ -14,7 +14,10 @@ function($document, $window, $timeout, $log) {
 			lineGrouping: '=sentioLineGrouping',
 			lineMethod: '=sentioLineMethod',
 			showLegend: '=sentioShowLegend',
-			tooltipCallbackFn: '&sentioTooltipCallbackFn'
+			tooltipCallbackFn: '&sentioTooltipCallbackFn',
+			redrawOnHide: '=sentioRedrawOnHide',
+			hiddenSeries: '=sentioHiddenSeries',
+			groupLineColor: '=sentioGroupLineColor'
 		},
 		replace : false,
 		link : function(scope, element, attrs, controller) {
@@ -68,6 +71,26 @@ function($document, $window, $timeout, $log) {
 				if (null != scope.tooltipCallbackFn) {
 					chart.tooltipCallback(scope.tooltipCallbackFn);
 				}
+			});
+
+			scope.$watch('redrawOnHide', function(n, o) {
+				if (null == o && null == n) { return; }
+
+				chart.redrawOnHide(n);
+			});
+
+			scope.$watch('hiddenSeries', function(n, o) {
+				if (null == o && null == n) { return; }
+
+				chart.hiddenSeries(n);
+				redraw();
+			});
+
+			scope.$watch('groupLineColor', function(n, o) {
+				if (null == o && null == n) { return; }
+
+				chart.groupLineColor(n);
+				redraw();
 			});
 
 			// Manage resizing the chart
