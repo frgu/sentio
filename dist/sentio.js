@@ -3081,17 +3081,24 @@ function sentio_line_line() {
 			.attr('class', 'start')
 			.attr('width', '4')
 			.attr('height', '4')
+			.attr('x', function(d) { return _scale.x(_marker.start(d)) - 2; })
+			.attr('y', function(d) { return (-10 - (5 * _marker.level(d)) - 2); })
 			.attr('fill', function(d) { return _marker.color(d) ? _marker.color(d) : _scale.color(_marker.slug(d)); });
 
 		endEnter
 			.attr('class', 'end')
 			.attr('width', '4')
 			.attr('height', '4')
+			.attr('x', function(d) { return _scale.x(_marker.end(d)) - 2; })
+			.attr('y', function(d) { return (-10 - (5 * _marker.level(d)) - 2); })
 			.attr('fill', function(d) { return _marker.color(d) ? _marker.color(d) : _scale.color(_marker.slug(d)); });
 
 		lineEnter
 			.attr('class', function(d) { return 'marker-line-'+_marker.slug(d) + ' line'; })
 			.attr('fill', function(d) { return _marker.color(d) ? _marker.color(d) : _scale.color(_marker.slug(d)); })
+			.attr('x', function(d) { return _scale.x(_marker.start(d)); })
+			.attr('y', function(d) { return (-10 - (5 * _marker.level(d)) - 1); })
+			.attr('width', function(d) { return _scale.x(_marker.end(d)) - _scale.x(_marker.start(d)); })
 			.attr('height', '2');
 
 		startUpdate.transition()
