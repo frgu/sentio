@@ -2380,7 +2380,7 @@ function sentio_line_line() {
 	};
 
 	// Default accessors for point information.
-	var _pointValue = {
+	var _point = {
 		x: function(d) { return d[0]; },
 		y: function(d) { return _stacked ? d[2] : d[1]; },
 		series: function(d) { return d[3]; },
@@ -2389,21 +2389,24 @@ function sentio_line_line() {
 	};
 
 	// Accessors for the positions of the markers
-	var _markerValue = {
+	var _marker = {
 		label: function(d, i) { return d[0]; },
 		slug: function(d, i) { return d[1]; },
 		start: function(d, i) { return d[2]; },
-		end: function(d, i) { return d[3]; }
+		end: function(d, i) { return d[3]; },
+		color: function(d, i) { return d[4]; },
+		layer: function(d, i) { return d[5]; },
+		level: function(d, i) { return d[6]; }
 	};
 
 	var now = Date.now();
 	var _extent = {
 		x: sentio.util.extent({
 			defaultValue: [now - 60000*5, now],
-			getValue: function(d) { return _pointValue.x(d[1]); }
+			getValue: function(d) { return _point.x(d[1]); }
 		}),
 		y: sentio.util.extent({
-			getValue: function(d) { return _hidden_series.indexOf(d[0]) === -1 ? _pointValue.y(d[1]) : 0; }
+			getValue: function(d) { return _hidden_series.indexOf(d[0]) === -1 ? _point.y(d[1]) : 0; }
 		})
 	};
 	var _multiExtent = sentio.util.multiExtent().values(function(d) { 
@@ -2417,8 +2420,7 @@ function sentio_line_line() {
 	var _scale = {
 		x: d3.time.scale(),
 		y: d3.scale.linear(),
-		color: d3.scale.category10(),
-		marker_color: ['#2CA02C', '#98DF8A', '#9467BD', '#C5B0D5']
+		color: d3.scale.category10()
 	};
 
 	// Bisector for hover line
@@ -2481,13 +2483,6 @@ function sentio_line_line() {
 		return _stacked ? _scale.y(_value.y__stacked(d)) : _scale.y(_value.y(d));
 	});
 
-	// Brush filter
-	var _filter = {
-		enabled: false,
-		brush: d3.svg.brush(),
-		dispatch: d3.dispatch('filter', 'filterstart', 'filterend')
-	};
-
 	// Array for various plot data
 	var _data = [];
 
@@ -2497,34 +2492,6 @@ function sentio_line_line() {
 		values: [],
 		dispatch: d3.dispatch('onclick')
 	};
-
-	function brushstart() {
-		var extent = getFilter();
-		var isEmpty = (null == extent);
-
-		var min = (isEmpty)? undefined : extent[0];
-		var max = (isEmpty)? undefined : extent[1];
-
-		_filter.dispatch.filterstart([isEmpty, min, max]);
-	}
-	function brush() {
-		var extent = getFilter();
-		var isEmpty = (null == extent);
-
-		var min = (isEmpty)? undefined : extent[0];
-		var max = (isEmpty)? undefined : extent[1];
-
-		_filter.dispatch.filter([isEmpty, min, max]);
-	}
-	function brushend() {
-		var extent = getFilter();
-		var isEmpty = (null == extent);
-
-		var min = (isEmpty)? undefined : extent[0];
-		var max = (isEmpty)? undefined : extent[1];
-
-		_filter.dispatch.filterend([isEmpty, min, max]);
-	}
 
 	// Chart create/init method
 	function _instance(selection){}
@@ -2576,13 +2543,13 @@ function sentio_line_line() {
 		// Append elements for capturing mouse events.
 		_element.g.mouseContainer = _element.g.container.append('rect')
 			.attr('class', 'mouse-container')
-			.on("mousemove", handleMouseMove)
-			.on("mouseover", function () {
+			.on('mousemove', handleMouseMove)
+			.on('mouseover', function () {
 				_element.g.hoverLine.style('display', 'block');
 			})
-			.on("mouseout", function () {
-				_element.g.markers.selectAll('.marker-line').transition().duration(100)
-					.attr('fill', function(d) { return _scale.marker_color[d[4]*2]; });
+			.on('mouseout', function () {
+				_element.g.markers.selectAll('.line').transition().duration(100)
+					.attr('fill', function(d) { return _marker.color(d) ? _marker.color(d) : _scale.color(_marker.slug(d)); });
 				_element.g.hoverLine.style('display', 'none');
 				_element.tooltip.style("visibility", "hidden");
 			});
@@ -2593,17 +2560,6 @@ function sentio_line_line() {
 			.attr('x2', '10')
 			.attr('stroke-dasharray', ('5,5'))
 			.style('display', 'none');
-
-		// If the filter is enabled, add it
-		if(_filter.enabled) {
-			_element.g.brush = _element.g.container.append('g').attr('class', 'x brush');
-			_element.g.brush.call(_filter.brush)
-				.selectAll('rect').attr('y', -6);
-			_filter.brush
-				.on('brushend', brushend)
-				.on('brushstart', brushstart)
-				.on('brush', brush);
-		}
 
 		_instance.resize();
 
@@ -2671,35 +2627,48 @@ function sentio_line_line() {
 	 */
 	_instance.markers = function(v) {
 		if(!arguments.length) { return _markers.dispatch; }
-		_markers.values = v.map(function(arr) { return arr.slice(); });
 
-		// Sort and parse markers for y levels
-		_markers.values.sort(function(a, b) {
-			var aWidth = _markerValue.end(a) - _markerValue.start(a);
-			var bWidth = _markerValue.end(b) - _markerValue.start(b);
+		// Create copy of markers
+		var markers = v.map(function(arr) { return arr.slice(0); });
+		if (markers.length === 0) {
+			return _instance;
+		}
 
-			return a[4] != b[4] ? a[4] - b[4] : bWidth - aWidth;
+		// Sort markers by width
+		markers.sort(function(a, b) {
+			var aWidth = _marker.end(a) - _marker.start(a);
+			var bWidth = _marker.end(b) - _marker.start(b);
+
+			return bWidth - aWidth;
 		});
 
-		for (var i = 0; i < _markers.values.length; i++) {
-			if (i === 0) { 
-				_markers.values[0].push(0); 
-			} else {
-				var start = _markerValue.start(_markers.values[i]);
-				var end = _markerValue.end(_markers.values[i]);
-				var idx_conflict = -1;
-				for (var j = 0; j < i; j++) {
-					if (_markerValue.start(_markers.values[j]) <= end && _markerValue.end(_markers.values[j]) >= start) {
-						idx_conflict = j;
+		// Assign levels, which are essentially y positions.
+		var levels = [[[_marker.start(markers[0]), _marker.end(markers[0])]]];
+		markers[0].push(0);
+		for (var m = 1; m < markers.length; m++) {
+			var start = _marker.start(markers[m]);
+			var end = _marker.end(markers[m]);
+			var l, span;
+			var levels_length = levels.length;
+			for (l = 0; l < levels_length; l++) {
+				var spaceAvailable = true;
+				for (span = 0; span < levels[l].length; span++) {
+					if (start < levels[l][span][1] && end > levels[l][span][0]) {
+						spaceAvailable = false;
 					}
 				}
-				if (idx_conflict === -1) {
-					_markers.values[i].push(0);
-				} else {
-					_markers.values[i].push(_markers.values[idx_conflict][5] + 1);
+				if (spaceAvailable) {
+					levels[l].push([start,end]);
+					markers[m].push(l);
+					break;
+				} else if (l === levels_length - 1) {
+					levels.push([[start, end]]);
+					markers[m].push(l+1);
 				}
 			}
 		}
+
+		_markers.values = markers;
 
 		return _instance;
 	};
@@ -2750,10 +2719,6 @@ function sentio_line_line() {
 	function handleMouseMove() {
 		if (!_data[0]) {return;}
 
-		_selected.points = [];
-		_selected.markers = [];
-
-		// Calculate nearest point and 
 		/*jshint validthis: true */
 		var mouse = d3.mouse(this);
 		var mouseDate = _scale.x.invert(mouse[0]);
@@ -2781,6 +2746,7 @@ function sentio_line_line() {
 		// End setup for mouse control
 
 		// Retrieve points when over the main graph.
+		_selected.points = [];	
 		if (onPoint && mouse[1] > 45) {
 			for (var i = 0; i < _data.length; i++) {
 				var pnt = _data[i].data.find(pntEql);
@@ -2790,28 +2756,18 @@ function sentio_line_line() {
 			}
 		}
 
-		for (var j = _markers.values.length-1; j >= 0; j--) {
-			if (targetXDate >= _markers.values[j][2] && targetXDate <= _markers.values[j][3]) {
-				_selected.markers.push(_markers.values[j]);	
-			}
-		}
+		_selected.markers = [];
+		for (var j = 0; j < _markers.values.length; j++) {
+			var marker = _markers.values[j];
+			var baseColor = _marker.color(marker) ? _marker.color(marker) : _scale.color(_marker.slug(marker));
+			if (targetXDate >= _marker.start(marker) && targetXDate <= _marker.end(marker)) {
+				_selected.markers.unshift(marker);
 
-		var marker_default_fn = function(d) {
-			return _scale.marker_color[d[4]*2+1];
-		};
-
-		var marker_hover_fn = function(d) {
-			return _scale.marker_color[d[4]*2];
-		};
-
-		for (var k = 0; k < _markers.values.length; k++) {
-			var ret = _selected.markers.find(markerFindFunction(_markerValue.slug(_markers.values[k])));
-			if (ret) {
-				_element.g.markers.select('.marker-line-'+_markerValue.slug(_markers.values[k])).transition().duration(100)
-					.attr('fill', marker_default_fn );
+				_element.g.markers.select('.marker-line-'+_marker.slug(marker)).transition()
+					.attr('fill', d3.rgb(baseColor).brighter());
 			} else {
-				_element.g.markers.select('.marker-line-'+_markerValue.slug(_markers.values[k])).transition().duration(100)
-					.attr('fill', marker_hover_fn );
+				_element.g.markers.select('.marker-line-'+_marker.slug(marker)).transition()
+					.attr('fill', baseColor);
 			}
 		}
 
@@ -2831,7 +2787,7 @@ function sentio_line_line() {
 
 	var markerFindFunction = function(toFind) {
 		return function(selected) {
-			return toFind === _markerValue.slug(selected);
+			return toFind === _marker.slug(selected);
 		};
 	};
 
@@ -2894,9 +2850,6 @@ function sentio_line_line() {
 			return _instance;
 		}
 
-		// Need to grab the filter extent before we change anything
-		var filterExtent = getFilter();
-
 		// Update the x domain (to the latest time window)
 		var x = multiExtent(_data, _extent.x);
 		_scale.x.domain(x);
@@ -2914,7 +2867,6 @@ function sentio_line_line() {
 		updateMarkers();
 		updatePoints();
 		updateLegend();
-		updateFilter(filterExtent);
 
 		return _instance;
 	};
@@ -3060,7 +3012,7 @@ function sentio_line_line() {
 		var pointJoin = _element.g.points
 			.selectAll('.point')
 			.data(_points, function(d) {
-				return 'pt-'+_pointValue.series(d)+'-'+_pointValue.x(d);
+				return 'pt-'+_point.series(d)+'-'+_point.x(d);
 			});
 
 		var pointEnter = pointJoin.enter().append('g')
@@ -3070,17 +3022,17 @@ function sentio_line_line() {
 		var circleUpdate = pointJoin.select('circle');
 
 		circleEnter
-			.attr('class', function(d) { return 'pt-'+_pointValue.series(d); })
+			.attr('class', function(d) { return 'pt-'+_point.series(d); })
 			.attr('r', 3)
-			.attr('fill', function(d) { return d3.rgb(_scale.color(_pointValue.color_index(d))).darker(); })
+			.attr('fill', function(d) { return d3.rgb(_scale.color(_point.color_index(d))).darker(); })
 			.attr('fill-opacity', 1);
 
 		circleUpdate.transition()
-			.attr('class', function(d) { return 'pt-'+_pointValue.series(d); })
-			.attr('cx', function(d) {return _scale.x(_pointValue.x(d));})
-			.attr('cy', function(d) {return _scale.y(_pointValue.y(d));})
+			.attr('class', function(d) { return 'pt-'+_point.series(d); })
+			.attr('cx', function(d) {return _scale.x(_point.x(d));})
+			.attr('cy', function(d) {return _scale.y(_point.y(d));})
 			.attr('fill-opacity', function(d) {
-				return _hidden_series.indexOf(_pointValue.series(d)) === -1 ? '1' : '0'; // Hide points if related series is hidden.
+				return _hidden_series.indexOf(_point.series(d)) === -1 ? '1' : '0'; // Hide points if related series is hidden.
 			});
 
 		//exit
@@ -3109,7 +3061,7 @@ function sentio_line_line() {
 		var markerJoin = _element.g.markers
 			.selectAll('.marker')
 			.data(_markers.values, function(d) {
-				return _markerValue.slug(d); 
+				return _marker.slug(d); 
 			});
 
 		// Enter
@@ -3121,122 +3073,45 @@ function sentio_line_line() {
 		var startEnter = markerEnter.append('rect');
 		var endEnter = markerEnter.append('rect');
 
-		var lineUpdate = markerJoin.select('.marker-line');
+		var lineUpdate = markerJoin.select('.line');
 		var startUpdate = markerJoin.select('.start');
 		var endUpdate = markerJoin.select('.end');
 
 		startEnter
 			.attr('class', 'start')
-			.attr('x', function(d) { return _scale.x(_markerValue.start(d)) - 2; })
-			.attr('y', function(d) { return (-10 - (5 * d[5]) - 2); })
 			.attr('width', '4')
 			.attr('height', '4')
-			.attr('fill', function(d) { return _scale.marker_color[d[4]*2]; });
+			.attr('fill', function(d) { return _marker.color(d) ? _marker.color(d) : _scale.color(_marker.slug(d)); });
 
 		endEnter
 			.attr('class', 'end')
-			.attr('x', function(d) { return _scale.x(_markerValue.end(d)) - 2; })
-			.attr('y', function(d) { return (-10 - (5 * d[5]) - 2); })
 			.attr('width', '4')
 			.attr('height', '4')
-			.attr('fill', function(d) { return _scale.marker_color[d[4]*2]; });
+			.attr('fill', function(d) { return _marker.color(d) ? _marker.color(d) : _scale.color(_marker.slug(d)); });
 
 		lineEnter
-			.attr('class', function(d) { return 'marker-line-'+_markerValue.slug(d) + ' marker-line'; })
-			.attr('x', function(d) { return _scale.x(_markerValue.start(d)); })
-			.attr('y', function(d) { return (-10 - (5 * d[5]) - 1); })
-			.attr('width', function(d) { return _scale.x(_markerValue.end(d)) - _scale.x(_markerValue.start(d)); })
-			.attr('height', '2')
-			.attr('fill', function(d) { return _scale.marker_color[d[4]*2]; });
+			.attr('class', function(d) { return 'marker-line-'+_marker.slug(d) + ' line'; })
+			.attr('fill', function(d) { return _marker.color(d) ? _marker.color(d) : _scale.color(_marker.slug(d)); })
+			.attr('height', '2');
 
 		startUpdate.transition()
-			.attr('x', function(d) { return _scale.x(_markerValue.start(d)) - 2; })
-			.attr('y', function(d) { return (-10 - (5 * d[5]) - 2); })
-			.attr('fill', function(d) { return _scale.marker_color[d[4]*2]; });
+			.attr('x', function(d) { return _scale.x(_marker.start(d)) - 2; })
+			.attr('y', function(d) { return (-10 - (5 * _marker.level(d)) - 2); })
+			.attr('fill', function(d) { return _marker.color(d) ? _marker.color(d) : _scale.color(_marker.slug(d)); });
 
 		endUpdate.transition()
-			.attr('x', function(d) { return _scale.x(_markerValue.end(d)) - 2; })
-			.attr('y', function(d) { return (-10 - (5 * d[5]) - 2); })
-			.attr('fill', function(d) { return _scale.marker_color[d[4]*2]; });
+			.attr('x', function(d) { return _scale.x(_marker.end(d)) - 2; })
+			.attr('y', function(d) { return (-10 - (5 * _marker.level(d)) - 2); })
+			.attr('fill', function(d) { return _marker.color(d) ? _marker.color(d) : _scale.color(_marker.slug(d)); });
 
 		lineUpdate.transition()
-			.attr('x', function(d) { return _scale.x(_markerValue.start(d)); })
-			.attr('y', function(d) { return (-10 - (5 * d[5]) - 1); })
-			.attr('fill', function(d) { return _scale.marker_color[d[4]*2]; })
-			.attr('width', function(d) { return _scale.x(_markerValue.end(d)) - _scale.x(_markerValue.start(d)); });
+			.attr('x', function(d) { return _scale.x(_marker.start(d)); })
+			.attr('y', function(d) { return (-10 - (5 * _marker.level(d)) - 1); })
+			.attr('width', function(d) { return _scale.x(_marker.end(d)) - _scale.x(_marker.start(d)); });
 
 		// Exit
 		var markerExit = markerJoin.exit().remove();
 
-	}
-
-	/*
-	 * Get the current state of the filter
-	 * Returns undefined if the filter is disabled or not set, millsecond time otherwise
-	 */
-	function getFilter() {
-		var extent;
-		if(_filter.enabled && !_filter.brush.empty()) {
-			extent = _filter.brush.extent();
-			if(null != extent) {
-				extent = [ extent[0].getTime(), extent[1].getTime() ];
-			}
-		}
-
-		return extent;
-	}
-
-	/*
-	 * Set the state of the filter, firing events if necessary
-	 */
-	function setFilter(newExtent, oldExtent) {
-		// Fire the event if the extents are different
-		var suppressEvent = newExtent == oldExtent || newExtent == null || oldExtent == null || (newExtent[0] == oldExtent[0] && newExtent[1] == oldExtent[1]);
-		var clearFilter = (null == newExtent || newExtent[0] >= newExtent[1]);
-
-		// either clear the filter or assert it
-		if(clearFilter) {
-			_filter.brush.clear();
-		} else {
-			_filter.brush.extent([ new Date(newExtent[0]), new Date(newExtent[1]) ]);
-		}
-
-		// fire the event if anything changed
-		if(!suppressEvent) {
-			_filter.brush.event(_element.g.brush);
-		}
-	}
-
-	/*
-	 * Update the state of the existing filter (if any) on the plot.
-	 * 
-	 * This method accepts the extent of the brush before any plot changes were applied
-	 * and updates the brush to be redrawn on the plot after the plot changes are applied.
-	 * There is also logic to clip the brush if the extent has moved such that the brush
-	 * has moved partially out of the plot boundaries, as well as to clear the brush if it
-	 * has moved completely outside of the boundaries of the plot.
-	 */
-	function updateFilter(extent) {
-		// Don't need to do anything if filtering is not enabled
-		if(_filter.enabled) {
-			// Reassert the x scale of the brush (in case the scale has changed)
-			_filter.brush.x(_scale.x);
-
-			// Derive the overall plot extent from the collection of series
-			var plotExtent = multiExtent(_data, _extent.x);
-
-			// If there was no previous extent, then there is no brush to update
-			if(null != extent) {
-				// Clip extent by the full extent of the plot (this is in case we've slipped off the visible plot)
-				var nExtent = [ Math.max(plotExtent[0], extent[0]), Math.min(plotExtent[1], extent[1]) ];
-				setFilter(nExtent, extent);
-			}
-
-			_element.g.brush
-				.call(_filter.brush)
-				.selectAll('rect')
-					.attr('height', _height - _margin.top - _margin.bottom + 7);
-		}
 	}
 
 	/*
@@ -3257,7 +3132,7 @@ function sentio_line_line() {
 		 */
 		for (var i = 0; i < _data.length; i++) {
 			if (index !== -1) {
-				if (h_index == -1) {
+				if (h_index === -1) {
 					for (var j = 0; j < _data[i].data.length; j++) {
 						_data[i].data[j][2] -= _data[index].data[j][1];
 					}
@@ -3272,7 +3147,7 @@ function sentio_line_line() {
 		}
 
 		// Update hidden series array 
-		if (h_index == -1) {
+		if (h_index === -1) {
 			_hidden_series.push(s);
 		} else {
 			_hidden_series.splice(h_index, 1);
@@ -3371,13 +3246,13 @@ function sentio_line_line() {
 		return _instance;
 	};
 	_instance.markerXValue = function(v){
-		if(!arguments.length) { return _markerValue.x; }
-		_markerValue.x = v;
+		if(!arguments.length) { return _marker.x; }
+		_marker.x = v;
 		return _instance;
 	};
 	_instance.markerLabelValue = function(v){
-		if(!arguments.length) { return _markerValue.label; }
-		_markerValue.label = v;
+		if(!arguments.length) { return _marker.label; }
+		_marker.label = v;
 		return _instance;
 	};
 	_instance.markerHover = function(v) {
@@ -3393,29 +3268,6 @@ function sentio_line_line() {
 	_instance.legendFn = function(v) {
 		if (!arguments.length) { return _legendCallback; }
 		_legendCallback = v;
-		return _instance;
-	};
-	_instance.filter = function(v) {
-		if(!arguments.length) { return _filter.dispatch; }
-		_filter.enabled = v;
-		return _instance;
-	};
-
-	// Expects milliseconds time
-	_instance.setFilter = function(extent) {
-		var oldExtent = getFilter();
-		if(null != extent && extent.length === 2) {
-			// Convert to Dates and assert filter
-			if(extent[0] instanceof Date) {
-				extent[0] = extent[0].getTime();
-			}
-			if(extent[1] instanceof Date) {
-				extent[1] = extent[1].getTime();
-			}
-		}
-
-		setFilter(extent, oldExtent);
-		_instance.redraw();
 		return _instance;
 	};
 
