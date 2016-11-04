@@ -3696,7 +3696,7 @@ function sentio_line_line() {
 		_points = [];
 		for (var i = 0; i < _data.length; i++) {
 			for (var j = 0; j < _data[i].data.length; j++) {
-				_points.push([_data[i].data[j][0], _data[i].data[j][1], _data[i].data[j][2], _data[i].key, _data[i].name, i]);
+				_points.push([_data[i].data[j][0], _data[i].data[j][1], _data[i].data[j][2], _data[i].key, _data[i].name, _data[i].color ? _data[i].color : i]);
 			}
 		}
 	}
@@ -4053,7 +4053,7 @@ function sentio_line_line() {
 		plotEnter.append('g').append('path')
 			.attr('class', 'line')
 			.attr('id', function(d) { return 'path-'+d.key; })
-			.attr('stroke', function(d, i) { return _scale.color(i); })
+			.attr('stroke', function(d, i) { return d.color ? d.color : _scale.color(i); })
 			.attr('stroke-width', '2px')
 			.attr('stroke-opacity', function(d) {
 				return _hidden_series.indexOf(d.key) === -1 ? '0.9' : '0';
@@ -4063,7 +4063,7 @@ function sentio_line_line() {
 			.attr('class', 'area')
 			.attr('id', function(d) { return 'area-'+d.key; })
 			.attr('stroke', 'none')
-			.attr('fill', function(d, i) { return _scale.color(i); })
+			.attr('fill', function(d, i) { return d.color ? d.color : _scale.color(i); })
 			.attr('fill-opacity', function(d) {
 				return _hidden_series.indexOf(d.key) === -1 ? '0.05' : '0';
 			});
@@ -4136,7 +4136,7 @@ function sentio_line_line() {
 		circleEnter
 			.attr('class', function(d) { return 'pt-'+_point.series(d); })
 			.attr('r', 3)
-			.attr('fill', function(d) { return d3.rgb(_scale.color(_point.color_index(d))).darker(); })
+			.attr('fill', function(d) { return d3.rgb(_point.color_index(d)).darker(); })
 			.attr('fill-opacity', 1);
 
 		circleUpdate.transition()
