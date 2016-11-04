@@ -2034,11 +2034,13 @@ function sentio_chart_scatter_line() {
 		_xBuffer = xDomain[1] - xDomain[0] === 0 ? 5 : Math.ceil((xDomain[1] - xDomain[0]) * 0.1);
 		_yBuffer = yDomain[1] - yDomain[0] === 0 ? 5 : Math.ceil((yDomain[1] - yDomain[0]) * 0.1);
 
-		xDomain[0] -= _xBuffer;
+		// xDomain[0] -= _xBuffer;
+		xDomain[0] = 0;
 		xDomain[1] += _xBuffer;
 		_scale.x.domain(xDomain);
 
-		yDomain[0] -= _yBuffer;
+		// yDomain[0] -= _yBuffer;
+		yDomain[0] = 0;
 		yDomain[1] += _yBuffer;
 		_scale.y.domain(yDomain);
 
