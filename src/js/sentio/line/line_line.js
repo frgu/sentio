@@ -307,6 +307,7 @@ function sentio_line_line() {
 		// Create copy of markers
 		var markers = v.map(function(arr) { return arr.slice(0); });
 		if (markers.length === 0) {
+			_markers.values = [];
 			return _instance;
 		}
 
