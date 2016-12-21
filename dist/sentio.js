@@ -1502,6 +1502,7 @@ function sentio_chart_scatter_line() {
 	var _margin = { top: 20, right: 50, bottom: 20, left: 50 };
 	var _width = 500;
 	var _height = 500;
+
 	var _lineGrouping = false;
 	var _lineMethod = 'linear';
 	var _showLegend = true;
@@ -1512,9 +1513,10 @@ function sentio_chart_scatter_line() {
 	var _yBuffer = 1;
 
 	var _data = [];
+	var _interactableData = [];
 	var _groups = {
-		groups: [],
-		hidden: []
+		groups: {},
+		hidden: {}
 	};
 	var _paths = [];
 
@@ -1531,7 +1533,7 @@ function sentio_chart_scatter_line() {
 		x: function(d) { return d[1]; },
 		y: function(d) { return d[2]; },
 		group: function(d) { return d[3]; },
-		color: function(d) { return d[4]; }
+		interactable: function(d) { return d[4]; }
 	};
 
 	var _tooltipCallback = null;
@@ -1539,11 +1541,11 @@ function sentio_chart_scatter_line() {
 	// Extents
 	var _extent = {
 		x: sentio.util.extent({
-			defaultValue: [-100, 100],
+			defaultValue: [0, 100],
 			getValue: function(d) { return _pointValue.x(d); }
 		}),
 		y: sentio.util.extent({
-			defaultValue: [-100, 100],
+			defaultValue: [0, 100],
 			getValue: function(d) { return _pointValue.y(d); }
 		})
 	};
@@ -1876,9 +1878,6 @@ function sentio_chart_scatter_line() {
 				.attr('cy', _scale.y(y))
 				.attr('opacity', opacity);
 		});
-
-		
-
 	}
 
 	function handleSVGLeave() {
@@ -1944,6 +1943,9 @@ function sentio_chart_scatter_line() {
 	_instance.data = function(v) {
 		if(!arguments.length) { return _data; }
 		_data = v || [];
+		_interactableData = _data.filter(function(d) { 
+			return _pointValue.interactable(d);
+		});
 
 		return _instance;
 	};
@@ -1959,7 +1961,7 @@ function sentio_chart_scatter_line() {
 	_instance.groups = function(v) {
 		if(!arguments.length) { return _groups; }
 		_groups.groups = v;
-		_groups.hidden = [];
+		_groups.hidden = {};
 		return _instance;
 	};
 
@@ -2003,10 +2005,10 @@ function sentio_chart_scatter_line() {
 					eq = _regression_fn[_lineMethod](groupedData[groupName]);
 					if (eq.points.length > 0) {
 						points = _generatePoints(eq);
-						var groupObj = _groups.groups.find(function(g) {
-							return g.name === groupName;
-						});
-						_paths.push({id: groupName, data: points, color: groupObj ? groupObj.color : _scale.color(groupName), eq: eq});
+						var groupObj = _groups.groups[groupName];
+						if (groupObj) {
+							_paths.push({id: groupName, data: points, color: groupObj.color, eq: eq});
+						}
 					}
 				}
 			}
@@ -2025,21 +2027,18 @@ function sentio_chart_scatter_line() {
 	_instance.redraw = function() {
 
 		var visibleData = _data.filter(function(d) {
-			return !_redrawOnHide || _groups.hidden.indexOf(_pointValue.group(d)) === -1;
+			return !_redrawOnHide || !_groups.hidden[_pointValue.group(d)];
 		});
-		_paths = [];
 
 		var xDomain = _extent.x.getExtent(visibleData);
 		var yDomain = _extent.y.getExtent(visibleData);
-		_xBuffer = xDomain[1] - xDomain[0] === 0 ? 5 : Math.ceil((xDomain[1] - xDomain[0]) * 0.1);
-		_yBuffer = yDomain[1] - yDomain[0] === 0 ? 5 : Math.ceil((yDomain[1] - yDomain[0]) * 0.1);
+		_xBuffer = xDomain[1] - xDomain[0] === 0 ? Math.ceil((xDomain[1]) * 0.1) : Math.ceil((xDomain[1] - xDomain[0]) * 0.1);
+		_yBuffer = yDomain[1] - yDomain[0] === 0 ? Math.ceil((yDomain[1]) * 0.1) : Math.ceil((yDomain[1] - yDomain[0]) * 0.1);
 
-		// xDomain[0] -= _xBuffer;
 		xDomain[0] = 0;
 		xDomain[1] += _xBuffer;
 		_scale.x.domain(xDomain);
 
-		// yDomain[0] -= _yBuffer;
 		yDomain[0] = 0;
 		yDomain[1] += _yBuffer;
 		_scale.y.domain(yDomain);
@@ -2085,7 +2084,7 @@ function sentio_chart_scatter_line() {
 		// Update point ticks on x axis
 		var xAxisTickJoin = _element.g.xAxis
 			.selectAll('.point-x-tick')
-			.data(_data, function(d) { return _pointValue.id(d); });
+			.data(_interactableData, function(d) { return _pointValue.id(d); });
 
 		var xAxisTickEnter = xAxisTickJoin.enter().append('line');
 
@@ -2096,10 +2095,10 @@ function sentio_chart_scatter_line() {
 			.attr('stroke-width', '1');
 
 		xAxisTickJoin.transition()
-			.attr('opacity', function(d) { return _groups.hidden.indexOf(_pointValue.group(d)) === -1 ? '1' : '0'; })
+			.attr('opacity', function(d) { return _groups.hidden[_pointValue.group(d)] ? '0' : '1'; })
 			.attr('x1', function(d) { return _scale.x(_pointValue.x(d)); })
 			.attr('x2', function(d) { return _scale.x(_pointValue.x(d)); })
-			.attr('stroke', function(d) { return _pointValue.color(d) ? _pointValue.color(d) : _scale.color(_pointValue.group(d)); });
+			.attr('stroke', function(d) { return _groups.groups[_pointValue.group(d)].color; });
 
 		xAxisTickJoin.exit().remove();
 
@@ -2107,7 +2106,7 @@ function sentio_chart_scatter_line() {
 		// Update point ticks on y axis
 		var yAxisTickJoin = _element.g.yAxis
 			.selectAll('.point-y-tick')
-			.data(_data, function(d) { return _pointValue.id(d); });
+			.data(_interactableData, function(d) { return _pointValue.id(d); });
 
 		var yAxisTickEnter = yAxisTickJoin.enter().append('line');
 
@@ -2118,31 +2117,31 @@ function sentio_chart_scatter_line() {
 			.attr('stroke-width', '1');
 
 		yAxisTickJoin.transition()
-			.attr('opacity', function(d) { return _groups.hidden.indexOf(_pointValue.group(d)) === -1 ? '1' : '0'; })
+			.attr('opacity', function(d) { return _groups.hidden[_pointValue.group(d)] ? '0' : '1'; })
 			.attr('y1', function(d) { return _scale.y(_pointValue.y(d)); })
 			.attr('y2', function(d) { return _scale.y(_pointValue.y(d)); })
-			.attr('stroke', function(d) { return _pointValue.color(d) ? _pointValue.color(d) : _scale.color(_pointValue.group(d)); });
+			.attr('stroke', function(d) { return _groups.groups[_pointValue.group(d)].color; });
 
 		yAxisTickJoin.exit().remove();
 	}
 
 	function handleLegendClick(d) {
-		var idx = _groups.hidden.indexOf(d.name);
-		if (idx === -1) {
-			_groups.hidden.push(d.name);
+		if (_groups.hidden[d.label]) {
+			delete _groups.hidden[d.label];
 		} else {
-			_groups.hidden.splice(idx, 1);
+			_groups.hidden[d.label] = d;
 		}
-		if (_groups.hidden.length === _groups.groups.length) {
-			_groups.hidden = [];
+		if (Object.keys(_groups.groups).length === Object.keys(_groups.hidden).length) {
+			_groups.hidden = {};
 		}
 		_instance.redraw();
 	}
 
 	function updateLegend() {
+		var groupsArray = Object.keys(_groups.groups).map(function(key) { return _groups.groups[key]; });
 		var legendJoin = _element.g.legend
 			.selectAll('.scatter-legend')
-			.data(_groups.groups);
+			.data(groupsArray);
 
 		var legendEnter = legendJoin.enter().append('g')
 			.attr('class', 'scatter-legend')
@@ -2152,7 +2151,7 @@ function sentio_chart_scatter_line() {
 			.attr('opacity', function(d) { 
 				var ret;
 				if (_showLegend) {
-					ret = _groups.hidden.indexOf(d.name) === -1 ? '1' : '0.2'; 
+					ret = _groups.hidden[d.label] ? '0.2' : '1';
 				} else {
 					ret = '0';
 				}
@@ -2174,8 +2173,8 @@ function sentio_chart_scatter_line() {
 		iconUpdate.transition().duration(100)
 			.attr('cx', _width - _margin.right - _margin.left)
 			.attr('cy', function(d, i) { return i * 25; })
-			.attr('fill', function(d) { return d.color ? d.color :  _scale.color(d.name); })
-			.attr('stroke', function(d) { return d.color ? d.color : _scale.color(d.name); });
+			.attr('fill', function(d) { return d.color; })
+			.attr('stroke', function(d) { return d.color; });
 
 		labelEnter
 			.attr('text-anchor', 'end');
@@ -2183,7 +2182,7 @@ function sentio_chart_scatter_line() {
 		labelUpdate.transition().duration(100)
 			.attr('x', _width - _margin.right - _margin.left - 20)
 			.attr('y', function(d, i) { return (i * 25) + 3; })
-			.text(function(d) { return d.name; });
+			.text(function(d) { return d.label; });
 
 
 		legendJoin.exit().remove();
@@ -2195,17 +2194,17 @@ function sentio_chart_scatter_line() {
 		_element.g.points.selectAll('.point')
 			.filter(function(p) { return _pointValue.id(p) !== _pointValue.id(d); })
 			.transition().duration(100)
-			.attr('opacity', function(p) { return _groups.hidden.indexOf(_pointValue.group(p)) === -1 ? '0.2' : '0'; });
+			.attr('opacity', function(p) { return _groups.hidden[_pointValue.group(p)] ? '0' : '0.2'; });
 
 		// Hide ticks for other points
 		_element.g.xAxis.selectAll('.point-x-tick')
 			.filter(function(p) { return _pointValue.id(p) !== _pointValue.id(d); })
 			.transition().duration(100)
-			.attr('opacity', function(p) { return _groups.hidden.indexOf(_pointValue.group(p)) === -1 ? '0.2' : '0'; });
+			.attr('opacity', function(p) { return _groups.hidden[_pointValue.group(p)] ? '0' : '0.2'; });
 		_element.g.yAxis.selectAll('.point-y-tick')
 			.filter(function(p) { return _pointValue.id(p) !== _pointValue.id(d); })
 			.transition().duration(100)
-			.attr('opacity', function(p) { return _groups.hidden.indexOf(_pointValue.group(p)) === -1 ? '0.2' : '0'; });
+			.attr('opacity', function(p) { return _groups.hidden[_pointValue.group(p)] ? '0' : '0.2'; });
 
 		// Move and show point focus lines
 		_element.g.pointFocus.x.transition().duration(100)
@@ -2213,38 +2212,36 @@ function sentio_chart_scatter_line() {
 			.attr('x2', _scale.x(_pointValue.x(d)) )
 			.attr('y1', _scale.y(_pointValue.y(d)) )
 			.attr('y2', _scale.y(_pointValue.y(d)) )
-			.attr('stroke', _pointValue.color(d) ? _pointValue.color(d) : _scale.color(_pointValue.group(d)) );
+			.attr('stroke', _groups.groups[_pointValue.group(d)].color );
 		_element.g.pointFocus.y.transition().duration(100)
 			.attr('opacity', '0.4')
 			.attr('x1', _scale.x(_pointValue.x(d)) )
 			.attr('x2', _scale.x(_pointValue.x(d)) )
 			.attr('y2', _scale.y(_pointValue.y(d)) )
-			.attr('stroke', _pointValue.color(d) ? _pointValue.color(d) : _scale.color(_pointValue.group(d)) );
+			.attr('stroke', _groups.groups[_pointValue.group(d)].color );
 
 		_element.tooltip.html(invokeTooltipCallback({d: d}));
 		var tooltip_width = _element.tooltip.node().getBoundingClientRect().width;
 		var tooltip_height = _element.tooltip.node().getBoundingClientRect().height;
 		_element.tooltip
-			// .style('top', (_scale.y(_pointValue.y(d)) + 2*_margin.top+50) + 'px')
 			.style('left', (_scale.x(_pointValue.x(d)) + 2*_margin.left-20) + 'px')
 			.style('top', (_scale.y(_pointValue.y(d)) + 2*_margin.top+40 - tooltip_height) + 'px');
-			// .style('left', (_scale.x(_pointValue.x(d)) + 2*_margin.left-30 - tooltip_width) + 'px');
 		_element.tooltip.transition().duration(1000).style('visibility', 'visible');
 	}
 
 	function handlePointExit(d) {
 		_element.g.points.selectAll('.point')
 			.transition().duration(100)
-			.attr('opacity', function(p) { return _groups.hidden.indexOf(_pointValue.group(p)) === -1 ? '1' : '0'; });
+			.attr('opacity', function(p) { return _groups.hidden[_pointValue.group(p)] ? '0' : '1'; });
 
 		_element.g.xAxis.selectAll('.point-x-tick')
 			.filter(function(p) { return _pointValue.id(p) !== _pointValue.id(d); })
 			.transition().duration(100)
-			.attr('opacity', function(p) { return _groups.hidden.indexOf(_pointValue.group(p)) === -1 ? '1' : '0'; });
+			.attr('opacity', function(p) { return _groups.hidden[_pointValue.group(p)] ? '0' : '1'; });
 		_element.g.yAxis.selectAll('.point-y-tick')
 			.filter(function(p) { return _pointValue.id(p) !== _pointValue.id(d); })
 			.transition().duration(100)
-			.attr('opacity', function(p) { return _groups.hidden.indexOf(_pointValue.group(p)) === -1 ? '1' : '0'; });
+			.attr('opacity', function(p) { return _groups.hidden[_pointValue.group(p)] ? '0' : '1'; });
 
 		_element.g.pointFocus.x.transition().duration(100)
 			.attr('opacity', '0');
@@ -2256,9 +2253,10 @@ function sentio_chart_scatter_line() {
 	}
 
 	function updatePoints() {
+
 		var pointJoin = _element.g.points
 			.selectAll('.point')
-			.data(_data, function(d) { return _pointValue.id(d)+'_'+_pointValue.x(d)+'_'+_pointValue.y(d); });
+			.data(_interactableData, function(d) { return _pointValue.id(d)+'_'+_pointValue.x(d)+'_'+_pointValue.y(d); });
 
 		var pointEnter = pointJoin.enter().append('g')
 			.attr('class', 'point')
@@ -2267,8 +2265,8 @@ function sentio_chart_scatter_line() {
 			.on('mouseleave', handlePointExit);
 
 		pointJoin.transition()
-			.attr('opacity', function(d) { return _groups.hidden.indexOf(_pointValue.group(d)) === -1 ? '1' : '0'; })
-			.attr('pointer-events', function(d) { return _groups.hidden.indexOf(_pointValue.group(d)) === -1 ? 'auto' : 'none'; });
+			.attr('opacity', function(d) { return _groups.hidden[_pointValue.group(d)] ? '0' : '1'; })
+			.attr('pointer-events', function(d) { return _groups.hidden[_pointValue.group(d)] ? 'none' : 'auto'; });
 
 		var circleEnter = pointEnter.append('circle');
 		var circleUpdate = pointJoin.select('circle');
@@ -2279,8 +2277,8 @@ function sentio_chart_scatter_line() {
 			.attr('stroke-width', '1');
 
 		circleUpdate.transition()
-			.attr('fill', function(d, i) { return _pointValue.color(d) ? _pointValue.color(d) : _scale.color(_pointValue.group(d)); })
-			.attr('stroke', function(d, i) { return _pointValue.color(d) ? d3.rgb(_pointValue.color(d)).brighter() : d3.rgb(_scale.color(_pointValue.group(d))).brighter(); })
+			.attr('fill', function(d, i) { return _groups.groups[_pointValue.group(d)].color; })
+			.attr('stroke', function(d, i) { return _groups.groups[_pointValue.group(d)].color; })
 			.attr('cx', function(d) { return _scale.x(_pointValue.x(d)); })
 			.attr('cy', function(d) { return _scale.y(_pointValue.y(d)); });
 
@@ -2301,13 +2299,14 @@ function sentio_chart_scatter_line() {
 		var lineUpdate = pathJoin.select('path');
 
 		var pointEnter = pathEnter.append('circle');
+		var pointUpdate = pathJoin.select('circle');
 
 		lineEnter
-			.attr('stroke', function(d) { return d.color; })
 			.attr('stroke-width', '1.5')
 			.attr('fill', 'none');
 
 		lineUpdate.transition()
+			.attr('stroke', function(d) { return d.color; })
 			.attr('d', function(d) { return _line(d.data); });
 
 		pointEnter
@@ -2316,8 +2315,10 @@ function sentio_chart_scatter_line() {
 			.attr('cy', '0')
 			.attr('stroke-width', '.5')
 			.attr('stroke', 'white')
-			.attr('fill', function(d) { return d3.rgb(d.color).brighter(2); })
 			.attr('opacity', '0');
+
+		pointUpdate.transition()
+			.attr('fill', function(d) { return d3.rgb(d.color).brighter(); });
 
 		pathJoin.exit().transition().attr('opacity', '0').remove();
 	}
