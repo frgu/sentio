@@ -1,3 +1,4 @@
+/*eslint-env node*/
 'use strict';
 
 let
@@ -37,7 +38,7 @@ gulp.task('validate-js', () => {
  * Build
  */
 
-gulp.task('build-js', ['rollup-js'], () => {
+gulp.task('build-js', [ 'rollup-js' ], () => {
 
 	// Uglify
 	return gulp.src(path.join(assets.dist.dir, (pkg.artifactName + '.js')))

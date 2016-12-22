@@ -13,81 +13,11 @@
   background-color: #bbb; }
 
 .sentio.bars-vertical .bar-label {
-<<<<<<< HEAD
-	overflow: hidden;
-	text-overflow: ellipsis;
-	display: inline-block;
-	margin: 5px 5px 5px 5px;
-}
-
-/*
-=======================================
-	ScatterLine Chart
-=======================================
-*/
-
-.sentio.scatter-line .axis path,
-.sentio.scatter-line .axis > g line {
-	pointer-events: none;
-	fill: none;
-	stroke: #000;
-	shape-rendering: crispEdges;
-}
-
-.sentio.scatter-line .axis > g line {
-	stroke: rgba(150, 150, 150, 0.1);
-}
-
-.sentio.scatter-line .axis path {
-	stroke: rgba(128, 128, 128, 1);
-}
-
-.sentio.scatter-line .sentio-tooltip {
-	visibility: hidden;
-	position: absolute;
-	background-color: #CCC;
-	border-radius: 5px;
-	padding: 3px;
-	pointer-events: none;
-	white-space: nowrap;
-	color: black;
-	z-index: 9990;
-	opacity: 0.8;
-}
-
-.sentio.scatter-line .scatter-legend {
-    -webkit-user-select: none;   /* Chrome/Safari/Opera */
-    -khtml-user-select: none;    /* Konqueror */
-    -moz-user-select: none;      /* Firefox */
-    -ms-user-select: none;       /* Internet Explorer/Edge */
-    user-select: none; 
-    cursor: pointer;
-}
-
-.sentio.scatter-line .point-focus {
-	pointer-events: none;
-}
-
-.sentio.scatter-line .scatter-path {
-	pointer-events: none;
-}
-/*
-=======================================
-	Chord Diagram
-=======================================
-*/
-/*
-=======================================
-	Donut Chart
-=======================================
-*/
-=======
   display: inline-block;
   margin: 5px;
   overflow: hidden;
   text-overflow: ellipsis; }
 
->>>>>>> upstream/master
 .sentio.donut .legend {
   font: 12px sans-serif; }
 
@@ -96,81 +26,8 @@
 
 .sentio.donut .arc.active,
 .sentio.donut .legend .entry.active rect {
-<<<<<<< HEAD
-	stroke-width: 1.5px;
-	stroke: #000;
-}
-
-/*
-=======================================
-	Line Chart
-=======================================
-*/
-
-.sentio.line {
-	position: relative;
-}
-
-.sentio.line .marker line {
-	stroke-width: 1;
-}
-
-.sentio.line .axis path,
-.sentio.line .axis line {
-	fill: none;
-	stroke: #000;
-	shape-rendering: crispEdges;
-}
-
-.sentio.line .brush .extent {
-	stroke: #fff;
-	fill-opacity: .125;
-	shape-rendering: crispEdges;
-}
-
-.sentio.line .g-main {
-	pointer-events: none;
-}
-
-.sentio.line .mouse-container {
-	visibility: hidden;
-	pointer-events: all;
-}
-
-.sentio.line .hover-line {
-	stroke: gray;
-	stroke-width: 1.5;
-}
-
-.sentio.line .line_tooltip {
-	visibility: hidden;
-	position: absolute;
-	background-color: #CCC;
-	border-radius: 5px;
-	padding: 3px;
-	pointer-events: none;
-	white-space: nowrap;
-	color: black;
-	z-index: 9990;
-	opacity: 0.8;
-}
-
-.sentio.line .axis line {
-	stroke: rgba(150, 150, 150, 0.1);
-}
-
-.sentio.line .axis path {
-	stroke: rgba(128, 128, 128, 1);
-}
-/*
-=======================================
-	Matrix Chart
-=======================================
-*/
-=======
   stroke: #000;
   stroke-width: 1.5px; }
->>>>>>> upstream/master
 
 .sentio.matrix .axis.x line {
   fill: none;
@@ -185,43 +42,8 @@
   fill: #000; }
 
 .sentio.matrix .series.label.active {
-<<<<<<< HEAD
-	fill: red;
-}
-/*
-=======================================
-  Sankey Chart
-=======================================
-*/
-
-.sentio.sankey .node text {
-  pointer-events: none;
-  font-weight: bold;
-  font: 12px;
-}
- 
-.sentio.sankey .link {
-  fill: none;
-  stroke-opacity: .2;
-}
- 
-.sentio.sankey .link:hover {
-  stroke-opacity: .5;
-}
-
-.sentio.sankey .node-rect {
-  fill-opacity: .9;
-  shape-rendering: crispEdges;
-  cursor: pointer;
-}
-
-.sentio.sankey .node-drag {
-  cursor: move;
-}
-=======
   fill: #f00; }
 
->>>>>>> upstream/master
 svg {
   font: 10px sans-serif; }
 
