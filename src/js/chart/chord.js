@@ -6,7 +6,7 @@ function chord() {
 	
 	var _width = 960;
     var _height = 960;
-	var _margin = { top: 20, bottom: 20, right: 20, left: 20 };
+	var _margin = { top: 100, bottom: 100, right: 100, left: 100 };
 	var _radius;
     var _innerRadiusRatio = 0.9;
     var _duration = 500;
