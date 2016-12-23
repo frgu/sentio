@@ -1349,8 +1349,7 @@ function chord() {
             .each(function(d) { this._current = { startAngle: 0, endAngle: 0 }; });
 
         var text = arcGroupEnter
-            .append('text')
-            .each(function(d) { this._centerAngle = (d.startAngle + d.endAngle) / 2; });
+            .append('text');
         
         path.merge(arcGroup.select('path')).transition('arcs:update').duration(_duration)
             .attrTween('d', function(d) { 
@@ -1365,11 +1364,11 @@ function chord() {
 
         text.merge(arcGroup.select('text')).transition('arc:update').duration(_duration)
 			.attr('transform', function(d) {
-				return "rotate(" + (this._centerAngle * 180 / Math.PI - 90) + ")" + 
+				return "rotate(" + (((d.startAngle + d.endAngle) / 2) * 180 / Math.PI - 90) + ")" + 
 					   "translate(" + (_radius + 5) + ")" +
-					   (this._centerAngle > Math.PI ? "rotate(180)" : "");
+					   (((d.startAngle + d.endAngle) / 2) > Math.PI ? "rotate(180)" : "");
 			})
-			.style('text-anchor', function(d) { return this._centerAngle > Math.PI ? "end" : null; })
+			.style('text-anchor', function(d) { return ((d.startAngle + d.endAngle) / 2) > Math.PI ? "end" : null; })
             .text(function(d) { return _fn.arc.label(d); });
 
         arcGroup.exit().remove();

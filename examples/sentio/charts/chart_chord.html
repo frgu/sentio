@@ -20,11 +20,12 @@
 	<div id="chart"></div>
 
 	<button onclick="updateData()">Update Data</button>
-	<button onclick="updateColors()">Update Colors</button>
 
 	<script type="text/javascript">
 
-        var data = 
+        var dataVersion = 1;
+
+        var data1 = 
                 [[0,	17342,	5423,	3566,	3007,	887,	0,		0,		125,	0],
 				[10342,	0,		2534,	5244,	3756,	633,	144,	0,		0,		13],
 				[4421,	4534,	0,		2244,	1112,	0,		399,	54,		13,		22],
@@ -36,16 +37,44 @@
 				[100,	0,		13,		33,		43,		2411,	111,	0,		0,		0],
 				[0,		153,	22,		5,		125,	442,	0,		55,		0,		0]];
         
-        var labels = 
-                ['Primary Care','Orthopedics','Cancer/Oncology','Dermatology','Neurology','Otolaryngology','Physical Therapy','Internal Medicine','ObGyn','Radiology'];
+        var labels1 = 
+                ['Category 1','Category 2','Category 3','Category 4','Category 5','Category 6','Category 7','Category 8','Category 9','Category 10'];
+
+        var data2 = 
+                [[5, 10, 15, 5, 10, 5],
+                [10, 5, 15, 10, 5, 5],
+                [5, 5, 5, 5, 5, 5],
+                [10, 10, 5, 15, 5, 5],
+                [15, 15, 5, 5, 15, 10],
+                [5, 10, 10, 5, 5, 15]];
+        var labels2 = ['Thing 1','Thing 2','Thing 3','Thing 4','Thing 5','Thing 6'];
 
 		var chartDiv = d3.select('#chart');
 		var chart = sentio.chart.chord()
 				.width(800).height(800)
-                .data(data).labels(labels);
+                .data(data1).labels(labels1);
+
+		chart.dispatch()
+				.on('arc:mouseover', function(d, i) { console.log({ type: 'arc:mouseover', event: d, index: i, context: this }); })
+				.on('arc:mouseout', function(d, i) { console.log({ type: 'arc:mouseout', event: d, index: i, context: this }); })
+				.on('arc:click', function(d, i) { console.log({ type: 'arc:click', event: d, index: i, context: this }); })
+				.on('ribbon:mouseover', function(d, i) { console.log({ type: 'ribbon:mouseover', event: d, index: i, context: this }); })
+				.on('ribbon:mouseout', function(d, i) { console.log({ type: 'ribbon:mouseout', event: d, index: i, context: this }); })
+				.on('ribbon:click', function(d, i) { console.log({ type: 'ribbon:click', event: d, index: i, context: this }); });
 
 		chart.init(chartDiv);
         chart.redraw();
+
+        function updateData() {
+            if (dataVersion === 1) {
+                chart.data(data1).labels(labels1);
+                dataVersion = 2;
+            } else {
+                chart.data(data2).labels(labels2);
+                dataVersion = 1;
+            }
+            chart.redraw();
+        }
 
 	</script>
 
