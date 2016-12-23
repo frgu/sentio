@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Chord Diagram. Basic Example.</title>
+
+	<link rel="stylesheet" href="../../../dist/sentio.css" />
+
+	<script src="../../../node_modules/d3/build/d3.js" charset="utf-8"></script>
+	<script src="../../../dist/sentio.js" charset="utf-8"></script>
+
+	<style>
+	</style>
+
+</head>
+<body>
+
+	<h1>Chord Diagram Example</h1>
+	<p>Standalong D3 Chord Diagram Example</p>
+
+	<div id="chart"></div>
+
+	<button onclick="updateData()">Update Data</button>
+	<button onclick="updateColors()">Update Colors</button>
+
+	<script type="text/javascript">
+
+        var data = 
+                [[0,	17342,	5423,	3566,	3007,	887,	0,		0,		125,	0],
+				[10342,	0,		2534,	5244,	3756,	633,	144,	0,		0,		13],
+				[4421,	4534,	0,		2244,	1112,	0,		399,	54,		13,		22],
+			 	[3966,	4344,	2244,	0,		1142,	43,		52,		124,	33,		5],
+			 	[2555,	4056,	1112,	1142,	0,		44,		16,		12,		43,		125],
+				[997,	33,		0,		43,		44,		0,		0,		63,		11,		42],
+				[0,		244,	399,	52,		16,		0,		0,		4,		14,		0],
+				[0,		0,		54,		124,	12,		663,	442,	0,		0,		50],
+				[100,	0,		13,		33,		43,		2411,	111,	0,		0,		0],
+				[0,		153,	22,		5,		125,	442,	0,		55,		0,		0]];
+        
+        var labels = 
+                ['Primary Care','Orthopedics','Cancer/Oncology','Dermatology','Neurology','Otolaryngology','Physical Therapy','Internal Medicine','ObGyn','Radiology'];
+
+		var chartDiv = d3.select('#chart');
+		var chart = sentio.chart.chord()
+				.width(800).height(800)
+                .data(data).labels(labels);
+
+		chart.init(chartDiv);
+        chart.redraw();
+
+	</script>
+
+</body>
+</html>
+
