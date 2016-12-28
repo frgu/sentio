@@ -12,6 +12,8 @@ function line() {
 	// Height and width of the SVG element
 	var _height = 100, _width = 600;
 
+	var _autoColor = false;
+
 	// Default accessors for the dimensions of the data
 	var _value = {
 		x: function(d) { return d[0]; },
@@ -24,15 +26,23 @@ function line() {
 		label: function(d, i) { return d[1]; }
 	};
 
+	var _defaults = {
+		color: 'black',
+		opacity: '1',
+		fill: '#eee'
+	};
+
+	var _duration = 250;
+
 	// Extent configuration for x and y dimensions of plot
 	var now = Date.now();
 	var _extent = {
 		x: extent({
 			defaultValue: [ now - 60000*5, now ],
-			getValue: function(d) { return d[0]; }
+			getValue: function(d) { return _value.x(d); }
 		}),
 		y: extent({
-			getValue: function(d) { return d[1]; }
+			getValue: function(d) { return _value.y(d); }
 		})
 	};
 	var _multiExtent = multiExtent().values(function(d) { return d.data; });
@@ -40,7 +50,8 @@ function line() {
 	// Default scales for x and y dimensions
 	var _scale = {
 		x: d3.scaleTime(),
-		y: d3.scaleLinear()
+		y: d3.scaleLinear(),
+		color: d3.scaleOrdinal(d3.schemeCategory10)
 	};
 
 	// Default Axis definitions
@@ -215,6 +226,9 @@ function line() {
 		if (!arguments.length) { return _data; }
 		_data = v;
 
+		// Reset color scale for new data
+		_scale.color = d3.scaleOrdinal(d3.schemeCategory10);
+
 		return _instance;
 	};
 
@@ -294,10 +308,10 @@ function line() {
 
 	function updateAxes() {
 		if (null != _axis.x) {
-			_element.g.xAxis.call(_axis.x);
+			_element.g.xAxis.transition().duration(_duration).call(_axis.x);
 		}
 		if (null != _axis.y) {
-			_element.g.yAxis.call(_axis.y);
+			_element.g.yAxis.transition().duration(_duration).call(_axis.y);
 		}
 	}
 
@@ -321,8 +335,25 @@ function line() {
 		var areaUpdate = plotJoin.select('.area');
 
 		// Enter + Update
-		lineEnter.merge(lineUpdate).datum(function(d) { return d.data; }).attr('d', _line);
-		areaEnter.merge(areaUpdate).datum(function(d) { return d.data; }).attr('d', _area.y0(_scale.y.range()[0]));
+		lineEnter.merge(lineUpdate)
+			.style('stroke', function(d) { 
+				if (_autoColor) {
+					return _scale.color(d.key);
+				}
+				return d.color ? d.color : _defaults.color; 
+			})
+			.datum(function(d) { return d.data; }).transition().duration(_duration)
+			.attr('d', _line);
+		areaEnter.merge(areaUpdate)
+			.style('fill', function(d) { 
+				if (_autoColor) { 
+					return _scale.color(d.key);
+				}
+				return d.fill ? d.fill : _defaults.fill;
+			})
+			.style('opacity', function(d) { return d.opacity ? d.opacity : _defaults.opacity; })
+			.datum(function(d) { return d.data; }).transition().duration(_duration)
+			.attr('d', _area.y0(_scale.y.range()[0]));
 
 		// Exit
 		var plotExit = plotJoin.exit();
@@ -392,6 +423,11 @@ function line() {
 		_margin = v;
 		return _instance;
 	};
+    _instance.autoColor = function(v) { 
+        if (!arguments.length) { return _autoColor; }
+        _autoColor = v;
+        return _instance;
+    };
 	_instance.curve = function(v) {
 		if (!arguments.length) { return _line.curve(); }
 		_line.curve(v);
