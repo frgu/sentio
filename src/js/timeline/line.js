@@ -27,9 +27,9 @@ function line() {
 	};
 
 	var _defaults = {
-		color: 'black',
-		opacity: '1',
-		fill: '#eee'
+		color: 'black', 	// Default line color
+		opacity: '1',		// Default area opacity
+		fill: '#eee'		// Default area color
 	};
 
 	var _duration = 250;

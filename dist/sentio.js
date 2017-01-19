@@ -2185,9 +2185,9 @@ function line() {
 	};
 
 	var _defaults = {
-		color: 'black',
-		opacity: '1',
-		fill: '#eee'
+		color: 'black', 	// Default line color
+		opacity: '1',		// Default area opacity
+		fill: '#eee'		// Default area color
 	};
 
 	var _duration = 250;
@@ -2768,192 +2768,26 @@ var realtime = {
 	timeline: timeline
 };
 
-function line_ext() {
+var timeline$1 = {
+	line: line
+};
 
-    var _line = line()
-        .filter(false);
+function tooltip(config) {
 
-	var _height = 100, _width = 600;
-
-    var _data = [];
-
-    var _color = 'none';
-
-    var _stack = 'none';
-
-	var _markers = {
-		values: []
-	};
-
-	var _scale = {
-        color: d3.scaleOrdinal(d3.schemeCategory10)
-    };
-
-    function _instance(selection) {}
-
-    _instance.init = function(container) {
-        _line.init(container, false);
-
-        _line.yAxis().ticks(10);
-        _line.yExtent().overrideValue([ 0, undefined ]);
-
-        // Override class names to allow for alternative 
-        // container.select('div').attr('class', 'sentio timeline_ext');
-
-        // Call extended init functions
-
-        _instance.resize();
-
-        return _instance;
-    };
-
-    _instance.data = function(v) {
-        if (!arguments.length) { return _data; }
-
-        var revData = v.slice(0).reverse();
-    
-        _data = revData.map(function(d, i) {
-            // Automatically add color if needed
-            if (!d.color && _color === 'auto') { d.color = _scale.color(d.key); }
-
-            if (_stack === 'auto') { d.opacity = '1'; }
-
-            // Append stacked data
-            d.data.forEach(function(point, j) {
-                point[2] = i === 0 ? point[1] : point[1] + revData[i-1].data[j][2];
-            });
-
-            return d;
-        });
-        _data.reverse();
-        // console.log(_data);
+    function _instance(tooltipConfig) {
         
-        _line.data(_data);
-        
-        return _instance;
-    };
+    }
 
-    _instance.markers = function(v) { 
-        if (!arguments.length) { return _markers; }
-        _markers.values = v;
-        _line.markers(_markers);
-
-        return _instance;
-    };
-
-    _instance.resize = function(container) {
-        _line.resize();
-
-        // Call extended resize fns
-
-        return _instance;
-    };
-
-    _instance.redraw = function() {
-
-
-
-        _line.redraw();
-
-        return _instance;
-    };
-
-	_instance.width = function(v) {
-		if (!arguments.length) { return _width; }
-		_width = v;
-        _line.width(_width);
-		return _instance;
-	};
-	_instance.height = function(v) {
-		if (!arguments.length) { return _height; }
-		_height = v;
-        _line.height(_height);
-		return _instance;
-	};
-    _instance.color = function(v) { 
-        if (!arguments.length) { return _color; }
-        _color = v;
-        return _instance;
-    };
-    _instance.stack = function(v) {
-        if (!arguments.length) { return _stack; }
-        _stack = v;
-
-        _line.yValue(function(d) {
-            return d[_stack === 'auto' ? 2 : 1];
-        });
-
-        _data.forEach(function(d) { 
-            d.opacity = _stack === 'auto' ? '1' : '0.1';
-        });
-
-        _line.data(_data);
-
-        return _instance;
-    };
-	_instance.margin = function(v) {
-        if (!arguments.length) { return _line.margin(); }
-        _line.margin(v);
-		return _instance;
-	};
-	_instance.curve = function(v) {
-		if (!arguments.length) { return _line.curve(); }
-		_line.curve(v);
-		return _instance;
-	};
-	_instance.xAxis = function(v) {
-		if (!arguments.length) { return _line.xAxis(); }
-        _line.xAxis(v);
-		return _instance;
-	};
-	_instance.yAxis = function(v) {
-		if (!arguments.length) { return _line.yAxis(); }
-        _line.yAxis(v);
-		return _instance;
-	};
-	_instance.xScale = function(v) {
-		if (!arguments.length) { return _line.xScale(); }
-        _line.xScale(v);
-		return _instance;
-	};
-	_instance.yScale = function(v) {
-		if (!arguments.length) { return _line.yScale(); }
-        _line.yScale(v);
-		return _instance;
-	};
-	_instance.xValue = function(v) {
-        if (!arguments.length) { return _line.xValue(); }
-        _line.xValue(v);
-		return _instance;
-	};
-	_instance.yValue = function(v) {
-        if (!arguments.length) { return _line.yValue(); }
-        _line.yValue(v);
-		return _instance;
-	};
-	_instance.xExtent = function(v) {
-		if (!arguments.length) { return _line.xExtent(); }
-        _line.xExtent(v);
-		return _instance;
-	};
-	_instance.yExtent = function(v) {
-		if (!arguments.length) { return _line.yExtent(); }
-        _line.yExtent(v);
-		return _instance;
-	};
+    _instance(config);
 
     return _instance;
 }
 
-var timeline$1 = {
-	line: line,
-	line_ext: line_ext
-};
-
 var util = {
 	extent: extent,
 	multiExtent: multiExtent,
-	timelineBrush: timelineBrush
+	timelineBrush: timelineBrush,
+	tooltip: tooltip
 };
 
 exports.chart = chart;
