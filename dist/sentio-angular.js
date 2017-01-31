@@ -423,7 +423,10 @@ function($document, $window, $timeout, $log) {
 		restrict : 'A',
 		scope : {
 			model: '=sentioModel',
+<<<<<<< HEAD
 			axes: '=sentioAxes',
+=======
+>>>>>>> master
 			markers: '=sentioMarkers',
 			yExtent: '=sentioYExtent',
 			xExtent: '=sentioXExtent',
@@ -432,12 +435,21 @@ function($document, $window, $timeout, $log) {
 			resizeWidth: '@sentioResizeWidth',
 			resizeHeight: '@sentioResizeHeight',
 			configureFn: '&sentioConfigureFn',
+<<<<<<< HEAD
+=======
+			filterFn: '&sentioFilterFn',
+			filterState: '=sentioFilterState',
+>>>>>>> master
 			interpolation: '@sentioInterpolation',
 			pointHoverFn: '&sentioPointHoverFn',
 			legendFn: '&sentioLegendFn',
 			yLock: '=sentioYLock',
+<<<<<<< HEAD
 			stacked: '=sentioStacked',
 			resetYAxisMax: '=sentioResetYAxisMax'
+=======
+			stacked: '=sentioStacked'
+>>>>>>> master
 		},
 		replace : false,
 		link : function(scope, element, attrs, controller) {
@@ -456,6 +468,48 @@ function($document, $window, $timeout, $log) {
 				if(null != height && !isNaN(height)) { line.height(height); }
 			}
 
+<<<<<<< HEAD
+=======
+			// Check to see if filtering is enabled
+			if (null != attrs.sentioFilterFn || attrs.sentioFilterState) {
+				line.filter(true);
+			}
+
+			// Store the filter state outside the scope as well as inside, to compare
+			var lastFilterState = null;
+
+			scope.$watch('filterFn', function(n, o){
+				line.filter().on('filterend', function(filterState){
+					$timeout(function(){
+						// Call the function callback
+						scope.filterFn({ filterState: filterState });
+
+						// Set the two-way-bound scope parameter
+						scope.filterState = filterState;
+
+						// Store the filter state locally so we can suppress updates on our own changes
+						lastFilterState = filterState;
+					});
+				});
+			});
+			scope.$watch('filterState', function(n, o) {
+				// If a filter was passed in and it is not the one we just set, do some updates
+				if (null != n && n !== lastFilterState) {
+
+					// If we're in the original format with 3 parameters, use the second two only
+					// TODO: We should go ahead and get rid of the 3 parameter style
+					if (n.length > 2) {
+						// The first element indicates if we're disabled
+						if (n[0]) {
+							return;
+						}
+						n = n.slice(1, 3);
+					}
+					line.setFilter(n);
+				}
+			});
+
+>>>>>>> master
 			line.init(lineElement);
 			line.interpolation(scope.interpolation);
 
@@ -495,6 +549,7 @@ function($document, $window, $timeout, $log) {
 			scope.$watchCollection('model', function(n, o){
 				if(null == o && null == n){ return; }
 
+<<<<<<< HEAD
 				line.data(n, scope.resetYAxisMax);
 				line.resize();
 				redraw();
@@ -504,6 +559,9 @@ function($document, $window, $timeout, $log) {
 				if(null == o && null == n){ return; }
 
 				line.axes(n);
+=======
+				line.data(n);
+>>>>>>> master
 				redraw();
 			});
 
