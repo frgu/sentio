@@ -1,8 +1,8 @@
-import { extent } from '../util/extent';
-import { multiExtent } from '../util/multi_extent';
-import { timelineBrush } from '../util/timeline_brush';
+import { extent } from '../../model/extent';
+import { multiExtent } from '../../model/multi-extent';
+import { timelineBrush } from '../../controller/timeline-brush';
 
-function line() {
+function timeline() {
 
 	var _id = 'timeline_line_' + Date.now();
 
@@ -14,22 +14,16 @@ function line() {
 
 	var _autoColor = false;
 
-	// Default accessors for the dimensions of the data
-	var _value = {
-		x: function(d) { return d[0]; },
-		y: function(d) { return d[1]; }
-	};
+	var _fn = {
+		valueX: function(d) { return d[0]; },
+		valueY: function(d) { return d[1]; },
 
-	// Accessors for the positions of the markers
-	var _markerValue = {
-		x: function(d, i) { return d[0]; },
-		label: function(d, i) { return d[1]; }
-	};
+		markerValueX: function(d, i) { return d[0]; },
+		markerLabel: function(d, i) { return d[1]; },
 
-	var _defaults = {
-		color: 'black', 	// Default line color
-		opacity: '1',		// Default area opacity
-		fill: '#eee'		// Default area color
+		seriesKey: function(d) { return d.key; },
+		seriesValues: function(d) { return d.values; },
+		seriesLabel: function(d) { return d.label; }
 	};
 
 	var _duration = 250;
@@ -39,13 +33,13 @@ function line() {
 	var _extent = {
 		x: extent({
 			defaultValue: [ now - 60000*5, now ],
-			getValue: function(d) { return _value.x(d); }
+			getValue: function(d, i) { return _fn.valueX(d, i); }
 		}),
 		y: extent({
-			getValue: function(d) { return _value.y(d); }
+			getValue: function(d, i) { return _fn.valueY(d, i); }
 		})
 	};
-	var _multiExtent = multiExtent().values(function(d) { return d.data; });
+	var _multiExtent = multiExtent().values(function(d, i) { return _fn.seriesValues(d, i); });
 
 	// Default scales for x and y dimensions
 	var _scale = {
@@ -78,19 +72,19 @@ function line() {
 	// Line generator for the plot
 	var _line = d3.line();
 	_line.x(function(d, i) {
-		return _scale.x(_value.x(d, i));
+		return _scale.x(_fn.valueX(d, i));
 	});
 	_line.y(function(d, i) {
-		return _scale.y(_value.y(d, i));
+		return _scale.y(_fn.valueY(d, i));
 	});
 
 	// Area generator for the plot
 	var _area = d3.area();
 	_area.x(function(d, i) {
-		return _scale.x(_value.x(d, i));
+		return _scale.x(_fn.valueX(d, i));
 	});
 	_area.y1(function(d, i) {
-		return _scale.y(_value.y(d, i));
+		return _scale.y(_fn.valueY(d, i));
 	});
 
 
@@ -178,7 +172,7 @@ function line() {
 	};
 
 	// Chart create/init method
-	function _instance(selection) {}
+	function _instance() {}
 
 
 	/**
@@ -224,7 +218,7 @@ function line() {
 	 */
 	_instance.data = function(v) {
 		if (!arguments.length) { return _data; }
-		_data = v;
+		_data = (null != v)? v : [];
 
 		// Reset color scale for new data
 		_scale.color = d3.scaleOrdinal(d3.schemeCategory10);
@@ -237,7 +231,7 @@ function line() {
 	 */
 	_instance.markers = function(v) {
 		if (!arguments.length) { return _markers.values; }
-		_markers.values = v;
+		_markers.values = (null != v)? v : [];
 		return _instance;
 	};
 
@@ -245,6 +239,9 @@ function line() {
 	 * Updates all the elements that depend on the size of the various components
 	 */
 	_instance.resize = function() {
+
+		// Need to grab the brush extent before we change anything
+		var brushSelection = getBrush();
 
 		// Set up the scales
 		_scale.x.range([ 0, Math.max(0, _width - _margin.left - _margin.right) ]);
@@ -279,6 +276,8 @@ function line() {
 
 		_brush.brush()
 			.extent([ [ 0, 0 ], [ _width - _margin.left - _margin.right, _height - _margin.top - _margin.bottom ] ]);
+
+		updateBrush(brushSelection);
 
 		return _instance;
 	};
@@ -320,16 +319,14 @@ function line() {
 		// Join
 		var plotJoin = _element.g.plots
 			.selectAll('.plot')
-			.data(_data, function(d) {
-				return d.key;
-			});
+			.data(_data, _fn.seriesKey);
 
 		// Enter
 		var plotEnter = plotJoin.enter().append('g')
 			.attr('class', 'plot');
 
-		var lineEnter = plotEnter.append('g').append('path').attr('class', function(d) { return ((d.cssClass)? d.cssClass : '') + ' line'; });
-		var areaEnter = plotEnter.append('g').append('path').attr('class', function(d) { return ((d.cssClass)? d.cssClass : '') + ' area'; });
+		var lineEnter = plotEnter.append('g').append('path').attr('class', function(d) { return 'line ' + ((d.cssClass)? d.cssClass : ''); });
+		var areaEnter = plotEnter.append('g').append('path').attr('class', function(d) { return 'area ' + ((d.cssClass)? d.cssClass : ''); });
 
 		var lineUpdate = plotJoin.select('.line');
 		var areaUpdate = plotJoin.select('.area');
@@ -340,19 +337,19 @@ function line() {
 				if (_autoColor) {
 					return _scale.color(d.key);
 				}
-				return d.color ? d.color : _defaults.color; 
+				return d.color ? d.color : ''; 
 			})
-			.datum(function(d) { return d.data; }).transition().duration(_duration)
+			.datum(_fn.seriesValues).transition().duration(_duration)
 			.attr('d', _line);
 		areaEnter.merge(areaUpdate)
 			.style('fill', function(d) { 
 				if (_autoColor) { 
 					return _scale.color(d.key);
 				}
-				return d.fill ? d.fill : _defaults.fill;
+				return d.fill ? d.fill : '';
 			})
-			.style('opacity', function(d) { return d.opacity ? d.opacity : _defaults.opacity; })
-			.datum(function(d) { return d.data; }).transition().duration(_duration)
+			.style('opacity', function(d) { return d.opacity ? d.opacity : ''; })
+			.datum(_fn.seriesValues).transition().duration(_duration)
 			.attr('d', _area.y0(_scale.y.range()[0]));
 
 		// Exit
@@ -366,9 +363,7 @@ function line() {
 		// Join
 		var markerJoin = _element.g.markers
 			.selectAll('.marker')
-			.data(_markers.values, function(d) {
-				return _markerValue.x(d);
-			});
+			.data(_markers.values, _fn.markerValueX);
 
 		// Enter
 		var markerEnter = markerJoin.enter().append('g')
@@ -388,18 +383,18 @@ function line() {
 			.attr('dy', '0em')
 			.attr('y', -3)
 			.attr('text-anchor', 'middle')
-			.text(function(d) { return _markerValue.label(d); });
+			.text(_fn.markerLabel);
 
 		// Enter + Update
 		var lineUpdate = markerJoin.select('line');
 		var textUpdate = markerJoin.select('text');
 
 		lineEnter.merge(lineUpdate)
-			.attr('x1', function(d) { return _scale.x(_markerValue.x(d)); })
-			.attr('x2', function(d) { return _scale.x(_markerValue.x(d)); });
+			.attr('x1', function(d, i) { return _scale.x(_fn.markerValueX(d, i)); })
+			.attr('x2', function(d, i) { return _scale.x(_fn.markerValueX(d)); });
 
 		textEnter.merge(textUpdate)
-			.attr('x', function(d) { return _scale.x(_markerValue.x(d)); });
+			.attr('x', function(d, i) { return _scale.x(_fn.markerValueX(d)); });
 
 		// Exit
 		markerJoin.exit().remove();
@@ -450,6 +445,9 @@ function line() {
 		if (null != _axis.x) {
 			_axis.x.scale(v);
 		}
+		if (null != _brush) {
+			_brush.scale(v);
+		}
 		return _instance;
 	};
 	_instance.yScale = function(v) {
@@ -461,13 +459,13 @@ function line() {
 		return _instance;
 	};
 	_instance.xValue = function(v) {
-		if (!arguments.length) { return _value.x; }
-		_value.x = v;
+		if (!arguments.length) { return _fn.valueX; }
+		_fn.valueX = v;
 		return _instance;
 	};
 	_instance.yValue = function(v) {
-		if (!arguments.length) { return _value.y; }
-		_value.y = v;
+		if (!arguments.length) { return _fn.valueY; }
+		_fn.valueY = v;
 		return _instance;
 	};
 	_instance.yExtent = function(v) {
@@ -480,14 +478,29 @@ function line() {
 		_extent.x = v;
 		return _instance;
 	};
-	_instance.markerXValue = function(v) {
-		if (!arguments.length) { return _markerValue.x; }
-		_markerValue.x = v;
+	_instance.seriesKey = function(v) {
+		if(!arguments.length) { return _fn.seriesKey; }
+		_fn.seriesKey = v;
 		return _instance;
 	};
-	_instance.markerLabelValue = function(v) {
-		if (!arguments.length) { return _markerValue.label; }
-		_markerValue.label = v;
+	_instance.seriesLabel = function(v) {
+		if(!arguments.length) { return _fn.seriesLabel; }
+		_fn.seriesLabel = v;
+		return _instance;
+	};
+	_instance.seriesValues = function(v) {
+		if(!arguments.length) { return _fn.seriesValues; }
+		_fn.seriesValues = v;
+		return _instance;
+	};
+	_instance.markerXValue = function(v) {
+		if (!arguments.length) { return _fn.markerValueX; }
+		_fn.markerValueX = v;
+		return _instance;
+	};
+	_instance.markerLabel = function(v) {
+		if (!arguments.length) { return _fn.markerLabel; }
+		_fn.markerLabel = v;
 		return _instance;
 	};
 	_instance.dispatch = function(v) {
@@ -510,4 +523,4 @@ function line() {
 	return _instance;
 }
 
-export { line };
+export { timeline };

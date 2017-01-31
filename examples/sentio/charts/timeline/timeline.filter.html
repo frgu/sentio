@@ -3,10 +3,10 @@
 <head>
 	<title>Static timeline with filter. Basic Example.</title>
 
-	<link rel="stylesheet" href="../../../dist/sentio.css" />
+	<link rel="stylesheet" href="../../../../dist/sentio.css" />
 
-	<script src="../../../node_modules/d3/build/d3.js" charset="utf-8"></script>
-	<script src="../../../dist/sentio.js" charset="utf-8"></script>
+	<script src="../../../../node_modules/d3/build/d3.js" charset="utf-8"></script>
+	<script src="../../../../dist/sentio.js" charset="utf-8"></script>
 
 	<style>
 	</style>
@@ -20,8 +20,9 @@
 	<button onclick="toggleEnable()">Disable/Enable Filter</button>
 
 	<script type="text/javascript">
+
 		var timelineDiv = d3.select('#chart');
-		var timeline = sentio.timeline.line()
+		var timeline = sentio.chart.timeline()
 			.height(100)
 			.width(600)
 			.filter(true);
@@ -33,7 +34,7 @@
 
 		var interval = 60000;
 		var binSize = 1000;
-		var hwm = Date.now();
+		var hwm = Math.round(Date.now()/1000)*1000;
 
 		var model1 = sentio.model.bins({
 			count: interval/binSize,
@@ -56,11 +57,11 @@
 
 		var data1 = generateData(hwm - interval, hwm);
 		model1.add(data1);
-		var series1 = { key: 'series1', data: model1.bins() };
+		var series1 = { key: 'series1', values: model1.bins() };
 
 		var data2 = generateData(hwm - interval, hwm);
 		model2.add(data2);
-		var series2 = { key: 'series2', data: model2.bins() };
+		var series2 = { key: 'series2', values: model2.bins() };
 
 		var data = [ series1, series2 ];
 
@@ -76,8 +77,8 @@
 
 		function updateData() {
 			// set the new lwm
-			var oldHwm = hwm;
-			hwm = Date.now();
+			var oldHwm = Math.round(hwm/1000)*1000;
+			hwm = Math.round(Date.now()/1000)*1000;
 
 			model1.clear().lwm(hwm - interval);
 			data1 = data1.concat(generateData(oldHwm, hwm));
@@ -87,6 +88,7 @@
 			data2 = data2.concat(generateData(oldHwm, hwm));
 			model2.add(data2);
 
+			timeline.xExtent().overrideValue([Date.now() - interval, Date.now()]);
 			timeline.redraw();
 		}
 
@@ -107,6 +109,13 @@
 		function toggleEnable() {
 			timeline.filter(!timeline.filter()).redraw();
 		}
+
+		function resize() {
+			var newWidth = document.getElementById('chart').clientWidth;
+			timeline.width(newWidth).resize().redraw();
+		}
+		window.addEventListener('resize', resize, true);
+		resize();
 
 	</script>
 

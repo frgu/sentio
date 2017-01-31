@@ -24,16 +24,16 @@
 		var lockY = false;
 		var lockStackOverrideStore = 0;
 		var timelineDiv = d3.select('#chart');
-		var timeline = sentio.timeline.line()
+		var timeline = sentio.chart.timeline()
 			.height(500)
 			.width(600)
 			.autoColor(true);
 
-		var yExtent = sentio.util.extent({
+		var yExtent = sentio.model.extent({
 			getValue: function(d) { return d[1]; }
 		});
 
-		var multiExtent = sentio.util.multiExtent()
+		var multiExtent = sentio.model.multiExtent()
 					.values(function(d) { return d.data; })
 					.extent(yExtent);
 
@@ -57,14 +57,14 @@
 
 		function updateData() {
 
-			data.push({ key: 'series' + series++, opacity: stack ? '1' : '0.1', data: generateData(hwm - 1000*15, 15) });
+			data.push({ key: 'series' + series++, opacity: stack ? '1' : '0.1', values: generateData(hwm - 1000*15, 15) });
 			// data.push({ key: 'series' + series++, opacity: '1', data: generateData(hwm - 1000*15, 15) });
 			// data[0] = { key: 'series' + series++, opacity: stack ? '1' : '0.1', data: generateData(hwm - 1000*15, 15) };
 
 			// Append stacked data
 			data.reverse().forEach(function(d, i) {
-				d.data.forEach(function(point, j) {
-					point[2] = i === 0 ? point[1] : point[1] + data[i-1].data[j][2];
+				d.values.forEach(function(point, j) {
+					point[2] = i === 0 ? point[1] : point[1] + data[i-1].values[j][2];
 				});
 			});
 			data.reverse();
@@ -76,6 +76,7 @@
 					timeline.yExtent().overrideValue([0, newExtent]);
 				}
 			}
+			console.log(timeline.data());
 			
 			timeline.redraw();
 		}
