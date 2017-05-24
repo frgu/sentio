@@ -81,6 +81,13 @@
 .sentio.scatter-line .scatter-path {
 	pointer-events: none;
 }
+
+.sentio.gantt .axis path,
+.sentio.gantt .axis line {
+	fill: none;
+	stroke: #DDD;
+	shape-rendering: geometricPrecision;
+}
 /*
 =======================================
 	Chord Diagram
