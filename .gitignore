@@ -12,6 +12,7 @@ node_modules
 
 # project files
 .project
+.vscode/
 
 # Mac OS
 .DS_Store
