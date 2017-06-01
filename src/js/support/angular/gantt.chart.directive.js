@@ -8,7 +8,9 @@ function($document, $window, $timeout, $log) {
 			model: '=sentioModel',
 			resizeWidth: '@sentioResizeWidth',
 			resizeHeight: '@sentioResizeHeight',
-			configureFn: '&sentioConfigureFn'
+			configureFn: '&sentioConfigureFn',
+			colorScale: '=sentioColorScale',
+			dateRange: '=sentioDateRange'
 		},
 		replace: false,
 		link: function(scope, element, attrs, controller) {
@@ -35,8 +37,21 @@ function($document, $window, $timeout, $log) {
 				if(null == o && null == n){ return; }
 
 				chart.data(n);
+				delayResize();
+			});
+
+			scope.$watch('colorScale', function(n, o) {
+				if(null == o && null == n){ return; }
+
+				chart.colorScale(n);
 				redraw();
 			});
+
+			scope.$watchCollection('dateRange', function(n, o) {
+				if(null == o && null == n) { return; }
+				chart.dateRange(n);
+				delayResize();
+			})
 
 			// Manage resizing the chart
 			var resizeWidth = (null != attrs.sentioResizeWidth);
