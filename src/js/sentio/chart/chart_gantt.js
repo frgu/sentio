@@ -246,12 +246,12 @@ function sentio_gantt() {
 		if(!arguments.length) { return _scale.color; }
 		_scale.color = d3.scale.ordinal().domain(d3.range(v.length)).range(v);
 		return _instance;
-	}
+	};
 	_instance.dateRange = function(v) {
 		if(!arguments.length) { return _dateRange; }
 		_dateRange = v;
 		return _instance;
-	}
+	};
 
 
 	return _instance;

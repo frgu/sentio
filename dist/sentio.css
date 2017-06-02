@@ -85,8 +85,17 @@
 .sentio.gantt .axis path,
 .sentio.gantt .axis line {
 	fill: none;
-	stroke: #DDD;
+	stroke: #555;
 	shape-rendering: geometricPrecision;
+	pointer-events: none;
+}
+.sentio.gantt .axis.y line {
+	stroke: #DDD;
+}
+.sentio.gantt .axis.y text {
+	font-size: 150%;
+	pointer-events: none;
+	fill: #999;
 }
 /*
 =======================================

@@ -1153,12 +1153,14 @@ function sentio_gantt() {
 
 	var _id = 'gantt_' + Date.now();
 
-	var _margin = {top: 60, right: 60, bottom: 60, left: 120};
+	var _margin = {top: 60, right: 60, bottom: 60, left: 60};
 	var _width = 1000, _height = 600;
 
-	var _data;
+	var _data = [];
+	var _dateRange;
 
 	var _barPaddingRatio = 0.05;
+	var _minBarHeight = 30;
 
 	var _scale = {
 		x: d3.time.scale(),
@@ -1182,9 +1184,13 @@ function sentio_gantt() {
 
 	var _bar = {
 		label: function(d) { return d[0]; },
-		start: function(d) { return d[1]; },
-		end: function(d) { return d[d.length - 1]; },
-		lastStep: function(i, j) { return _data[j][i+1]; }
+		start: function(d) { return d[1][0]; },
+		end: function(d) { return d[d.length - 1][1]; }
+	};
+
+	var _segment = {
+		start: function(d) { return d[0]; },
+		end: function(d) { return d[1]; }
 	};
 
 	var now = Date.now();
@@ -1213,16 +1219,6 @@ function sentio_gantt() {
 	};
 
 	var _fn = {
-		wrap: function() {
-			var self = d3.select(this),
-				textLength = self.node().getComputedTextLength(),
-				text = self.text();
-			while (textLength > (_margin.left - 10) && text.length > 0) {
-				text = text.slice(0, -1);
-				self.text(text + '...');
-				textLength = self.node().getComputedTextLength();
-			}
-		},
 		filterFn: function(e, i, a) {
 			return a[i+1] ? Math.abs(a[i+1].getTime() - e.getTime()) > 0 : true;
 		},
@@ -1255,16 +1251,16 @@ function sentio_gantt() {
 	function _instance(selection){}
 
 	_instance.init = function(container) {
-		_element.div = container.append('div').attr('class', 'sentio gantt');
+		_element.div = container.append('div').attr('class', 'sentio gantt').style('overflow', 'scroll');
 
 		_element.svg = _element.div.append('svg');
 
 		_element.g.container = _element.svg.append('g');
 
+		_element.g.bars = _element.g.container.append('g').attr('class', 'bars');
+
 		_element.g.axis.x = _element.g.container.append('g').attr('class', 'axis x');
 		_element.g.axis.y = _element.g.container.append('g').attr('class', 'axis y');
-
-		_element.g.bars = _element.g.container.append('g').attr('class', 'bars');
 
 		_instance.resize();
 
@@ -1272,10 +1268,11 @@ function sentio_gantt() {
 	};
 
 	_instance.resize = function() {
-		_element.svg.attr('width', _width).attr('height', _height);
+		_element.div.style('width', _width + 'px').style('height', _height + 'px');
+		_element.svg.attr('width', _width).attr('height', _scale.y.rangeBand() < _minBarHeight ? _data.length * _minBarHeight + _margin.top + _margin.bottom : _height);
 
 		_scale.x.range([0, Math.max(0, _width - _margin.left - _margin.right)]);
-		_scale.y.rangeBands([0, Math.max(0, _height - _margin.top - _margin.bottom)], _barPaddingRatio);
+		_scale.y.rangeBands([0, Math.max(0, _height - _margin.top - _margin.bottom, _data.length * _minBarHeight)], _barPaddingRatio);
 
 		_element.g.container.attr('transform', 'translate(' + _margin.left + ',' + _margin.top + ')');
 
@@ -1294,14 +1291,20 @@ function sentio_gantt() {
 			.attr('font-size', function(d) { return d.getMonth() === 0 && d.getDate() === 1 ? 'larger'  : 'inherit'; });
 		_element.g.axis.x.selectAll('line').transition()
 			.attr('y2', function(d) { return d.getDate() === 1 ? '-14' : '-6'; })
-			.attr('y1', function(d) { return d.getDate() === 1 ? (_height-_margin.top-_margin.bottom) : ''; });
+			.attr('y1', function(d) { 
+				var ret = '';
+				if (d.getDate() === 1) {
+					ret = _scale.y.rangeBand() < _minBarHeight ? _data.length * _minBarHeight : _height - _margin.top - _margin.bottom;
+				}
+				return ret;
+			});
 
 		_element.g.axis.y.transition().call(_axis.y);
 
 		_element.g.axis.y.selectAll('text').transition()
-			.attr('y', function(d) { return _scale.y.rangeBand()/(2*(1-_barPaddingRatio)); })
-			.attr('font-size', 'larger')
-			.each(_fn.wrap);
+			.attr('x', '15')
+			.attr('y', '15')
+			.style('text-anchor', 'start');
 	}
 
 	function updateBars() {
@@ -1312,10 +1315,11 @@ function sentio_gantt() {
 				.attr('class', 'bar');
 
 		var segmentEnter = barEnter.selectAll('.segment')
-				.data(function(d) { return d.slice(2); });
+				.data(function(d) { return d.slice(1); });
 
 		segmentEnter.enter().append('rect')
 				.attr('class', 'segment')
+				.attr('opacity', '0.8')
 				.on('mouseover', _fn.onMouseOver)
 				.on('mouseout', _fn.onMouseOut)
 				.on('click', _fn.onClick);
@@ -1323,10 +1327,10 @@ function sentio_gantt() {
 		var barUpdate = barJoin.selectAll('.segment');
 
 		barUpdate.transition()
-				.attr('x', function(d, i, j) { return _scale.x(_bar.lastStep(i, j)); })
+				.attr('x', function(d, i, j) { return _scale.x(_segment.start(d)); })
 				.attr('y', function(d, i, j) { return _scale.y(_bar.label(_data[j])) + _scale.y.rangeBand()/(2*(1-_barPaddingRatio)); })
-				.attr('width', function(d, i, j) { return _scale.x(d) - _scale.x(_bar.lastStep(i, j)); })
-				.attr('height', function(d, i, j) { return _scale.y.rangeBand(); })
+				.attr('width', function(d, i, j) { return _scale.x(_segment.end(d)) - _scale.x(_segment.start(d)); })
+				.attr('height', function(d, i, j) { return Math.max(_scale.y.rangeBand(), _minBarHeight); })
 				.attr('fill', function(d, i, j) { return _scale.color(i); });
 				
 		barJoin.exit().remove();
@@ -1334,12 +1338,15 @@ function sentio_gantt() {
 	}
 
 	_instance.redraw = function() {
+		if (!_data) { return; }
 
-		var startOfMonth = new Date(_extent.start.getExtent(_data)[0]);
-		var endOfMonth = new Date(_extent.end.getExtent(_data)[1]);
+		var startOfDomain = new Date(_extent.start.getExtent(_data)[0]);
+		var endOfDomain = new Date(_extent.end.getExtent(_data)[1]);
 
-		var startOfDomain = new Date(startOfMonth.getFullYear(), startOfMonth.getMonth(), 1).getTime();
-		var endOfDomain = new Date(endOfMonth.getFullYear(), endOfMonth.getMonth() + 1, 0).getTime();
+		if (_dateRange) {
+			startOfDomain = new Date(_dateRange[0]);
+			endOfDomain = new Date(_dateRange[1]);
+		}
 
 		_scale.x.domain([startOfDomain, endOfDomain]);
 
@@ -1368,7 +1375,6 @@ function sentio_gantt() {
 	_instance.data = function(d) {
 		if(!arguments.length) { return _data; }
 		_data = d;
-		console.log(_data);
 		return _instance;
 	};
 	_instance.width = function(v) {
@@ -1383,6 +1389,16 @@ function sentio_gantt() {
 	};
 	_instance.dispatch = function(v) {
 		if(!arguments.length) { return _dispatch; }
+		return _instance;
+	};
+	_instance.colorScale = function(v) {
+		if(!arguments.length) { return _scale.color; }
+		_scale.color = d3.scale.ordinal().domain(d3.range(v.length)).range(v);
+		return _instance;
+	};
+	_instance.dateRange = function(v) {
+		if(!arguments.length) { return _dateRange; }
+		_dateRange = v;
 		return _instance;
 	};
 
