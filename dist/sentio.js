@@ -1208,6 +1208,7 @@ function sentio_gantt() {
 	var _element = {
 		div: undefined,
 		svg: undefined,
+		clipPath: undefined,
 		g: {
 			container: undefined,
 			bars: undefined,
@@ -1255,9 +1256,11 @@ function sentio_gantt() {
 
 		_element.svg = _element.div.append('svg');
 
+		_element.clipPath = _element.svg.append('defs').append('clipPath').attr('id', _id).append('rect');
+
 		_element.g.container = _element.svg.append('g');
 
-		_element.g.bars = _element.g.container.append('g').attr('class', 'bars');
+		_element.g.bars = _element.g.container.append('g').attr('class', 'bars').attr('clip-path', 'url(#' + _id + ')');
 
 		_element.g.axis.x = _element.g.container.append('g').attr('class', 'axis x');
 		_element.g.axis.y = _element.g.container.append('g').attr('class', 'axis y');
@@ -1270,6 +1273,11 @@ function sentio_gantt() {
 	_instance.resize = function() {
 		_element.div.style('width', _width + 'px').style('height', _height + 'px');
 		_element.svg.attr('width', _width).attr('height', _scale.y.rangeBand() < _minBarHeight ? _data.length * _minBarHeight + _margin.top + _margin.bottom : _height);
+
+		_element.clipPath
+			.attr('transform', 'translate(0, -' + _margin.top + ')')
+			.attr('width', Math.max(0, _width - _margin.left - _margin.right))
+			.attr('height', Math.max(0, _height - _margin.bottom));
 
 		_scale.x.range([0, Math.max(0, _width - _margin.left - _margin.right)]);
 		_scale.y.rangeBands([0, Math.max(0, _height - _margin.top - _margin.bottom, _data.length * _minBarHeight)], _barPaddingRatio);
