@@ -1,49 +1,42 @@
-sentio.chart.scatterLine = sentio_chart_scatter_line;
-function sentio_chart_scatter_line() {
+sentio.chart.scatter = sentio_chart_scatter;
+function sentio_chart_scatter() {
 	'use strict';
+	
+	var _id = 'scatter_' + Date.now();
 
-	// Layout properties
-	var _id = 'scatter_line' + Date.now();
-	var _margin = { top: 20, right: 50, bottom: 20, left: 50 };
-	var _width = 500;
-	var _height = 500;
-
-	var _lineGrouping = false;
-	var _lineMethod = 'linear';
-	var _showLegend = true;
-	var _redrawOnHide = true;
-	var _groupLineColor = '#1C6CAB';
-
-	var _xBuffer = 1;
-	var _yBuffer = 1;
-
-	var _data = [];
-	var _interactableData = [];
-	var _groups = {
-		groups: {},
-		hidden: {}
+	var _layout = {
+		margin: { top: 50, right: 50, bottom: 50, left: 50 },
+		width: 600,
+		height: 600
 	};
-	var _paths = [];
 
-	// Default scales for x and y dimensions
+	var _config = {
+		paddingRatio: 0.05,
+		tickCount: 10
+	};
+
+	var _data = [[]];
+	var _lineData = [];
+
 	var _scale = {
 		x: d3.scale.linear(),
 		y: d3.scale.linear(),
 		color: d3.scale.category10()
 	};
 
-	// Accessor functions for points
+	var _dispatch = d3.dispatch('onmouseover', 'onmouseout', 'onclick');
+
 	var _pointValue = {
 		id: function(d) { return d[0]; },
 		x: function(d) { return d[1]; },
-		y: function(d) { return d[2]; },
-		group: function(d) { return d[3]; },
-		interactable: function(d) { return d[4]; }
+		y: function(d) { return d[2]; }
 	};
 
-	var _tooltipCallback = null;
+	var _lineValue = {
+		x: function(d) { return d[0]; },
+		y: function(d) { return d[1]; }
+	};
 
-	// Extents
 	var _extent = {
 		x: sentio.util.extent({
 			defaultValue: [0, 100],
@@ -54,827 +47,275 @@ function sentio_chart_scatter_line() {
 			getValue: function(d) { return _pointValue.y(d); }
 		})
 	};
+	var _multiExtent = sentio.util.multiExtent().values(function(d) { return d; });
 
 	var _axis = {
 		x: d3.svg.axis()
 			.scale(_scale.x)
 			.orient('bottom')
-			.innerTickSize(-_height)
-			.ticks(5),
+			.innerTickSize(-_layout.height)
+			.ticks(_config.tickCount),
 		y: d3.svg.axis()
 			.scale(_scale.y)
 			.orient('left')
-			.innerTickSize(-_width)
-			.ticks(5),
-		labels: {
-			x: undefined,
-			y: undefined
-		}
+			.innerTickSize(-_layout.width)
+			.ticks(_config.tickCount),
+		labels: ['',''] // Default empty axis labels
 	};
 
-	// elements
+	var _line = d3.svg.line().interpolate('basis');
+	_line.x(function(d) { return _scale.x(_lineValue.x(d)); });
+	_line.y(function(d) { return _scale.y(_lineValue.y(d)); });
+
 	var _element = {
 		div: undefined,
 		svg: undefined,
-		tooltip: undefined,
 		g: {
-			xAxis: undefined,
-			yAxis: undefined,
-			axisLabels: {
+			container: undefined,
+			axis: {
 				x: undefined,
-				y: undefined
+				xLabel: undefined,
+				y: undefined,
+				yLabel: undefined
 			},
-			points: undefined,
-			pointFocus: {
-				g: undefined,
-				x: undefined,
-				y: undefined
-			},
-			paths: undefined,
-			pathPointer: undefined,
-			legend: undefined
+			lines: undefined,
+			points: undefined
 		}
 	};
 
-	var _line = d3.svg.line().interpolate('linear');
-	_line.x(function(d) { return _scale.x(d[0]); });
-	_line.y(function(d) { return _scale.y(d[1]); });
-
-	var _generatePoint = function(x, eq) {
-		var a, b, c;
-		var ret = 0;
-		a = eq.equation[0];
-		b = eq.equation[1];	
-		if (_lineMethod === 'linear') {
-			ret = a * x + b;
-		} else if (_lineMethod === 'logarithmic') {
-			ret = a + b * Math.log(x);
-		} else if (_lineMethod === 'power') {
-			ret = a * Math.pow(x, b);
-		} else if (_lineMethod === 'exponential') {
-			ret = a * Math.pow(Math.E, (x*b));
-		} else if (_lineMethod === 'polynomial') {
-			c = eq.equation[2];
-			ret = c*Math.pow(x,2) + b*x + a;
-		}
-		return ret;
-	};
-
-	var _generatePoints = function(eq) {
-		var ret = [];
-		var a, b, c;
-		var x, y, i;
-		var range, start, end, steps;
-
-		a = eq.equation[0];
-		b = eq.equation[1];
-		start = eq.points[0][0]-(_xBuffer/2);
-		end = eq.points[eq.points.length-1][0]+(_xBuffer/2);
-		range = end-start;
-		steps = Math.ceil((((end-start)/range)*(_width - _margin.left - _margin.right))/2);
-
-		if (_lineMethod === 'linear') {
-			ret.push([start, a * start + b]);
-			ret.push([end, a * end + b]);
-		} else if (_lineMethod === 'logarithmic') {
-			for (i = 0; i < steps; i++) {
-				x = start + (end - start) * (i/steps);
-				if (x > 0) {
-					y = a + b * Math.log(x);
-					ret.push([x, y]);
-				}
-			}
-		} else if (_lineMethod === 'power') {
-			for (i = 0; i < steps; i++) {
-				x = start + (end - start) * (i/steps);			
-				y = a * Math.pow(x, b);
-				if (y) {
-					ret.push([x, y]);
-				}
-			}
-		} else if (_lineMethod === 'exponential') {
-			for (i = 0; i < steps; i++) {
-				x = start + (end - start) * (i/steps);			
-				y = a * Math.pow(Math.E, (x*b));
-				if (y) {
-					ret.push([x, y]);
-				}
-			}
-		} else if (_lineMethod === 'polynomial') {
-			c = eq.equation[2];
-			for (i = 0; i < steps; i++) {
-				x = start + (end - start) * (i/steps);			
-				y = c*Math.pow(x,2) + b*x + a;
-				if (y) {
-					ret.push([x, y]);
-				}
-			}
-		}
-		return ret;
-	};
-
-	var gaussianElimination = function(a, o) {
-		var i = 0, j = 0, k = 0, maxrow = 0, tmp = 0, n = a.length - 1, x = new Array(o);
-		for (i = 0; i < n; i++) {
-			maxrow = i;
-			for (j = i + 1; j < n; j++) {
-				if (Math.abs(a[i][j]) > Math.abs(a[i][maxrow]))
-					maxrow = j;
-			}
-			for (k = i; k < n + 1; k++) {
-				tmp = a[k][i];
-				a[k][i] = a[k][maxrow];
-				a[k][maxrow] = tmp;
-			}
-			for (j = i + 1; j < n; j++) {
-				for (k = n; k >= i; k--) {
-					a[k][j] -= a[k][i] * a[i][j] / a[i][i];
-				}
-			}
-		}
-		for (j = n - 1; j >= 0; j--) {
-			tmp = 0;
-			for (k = j + 1; k < n; k++)
-				tmp += a[k][j] * x[k];
-			x[j] = (a[n][j] - tmp) / a[j][j];
-		}
-		return (x);
-	};
-
-	var _regression_fn = {
-		linear: function(data) {
-			var sum = [0, 0, 0, 0, 0], n = 0, results = [];
-
-			for (; n < data.length; n++) {
-				if (data[n][2] != null) {
-					sum[0] += _pointValue.x(data[n]);
-					sum[1] += _pointValue.y(data[n]);
-					sum[2] += _pointValue.x(data[n]) * _pointValue.x(data[n]);
-					sum[3] += _pointValue.x(data[n]) * _pointValue.y(data[n]);
-					sum[4] += _pointValue.y(data[n]) * _pointValue.y(data[n]);
-				}
-			}
-
-			var gradient = (n * sum[3] - sum[0] * sum[1]) / (n * sum[2] - sum[0] * sum[0]);
-
-			var intercept = (sum[1] / n) - (gradient * sum[0]) / n;
-			// var correlation = (n * sum[3] - sum[0] * sum[1]) / Math.sqrt((n * sum[2] - sum[0] * sum[0]) * (n * sum[4] - sum[1] * sum[1]));
-
-			for (var i = 0, len = data.length; i < len; i++) {
-				var coordinate = [_pointValue.x(data[i]), _pointValue.x(data[i]) * gradient + intercept];
-				results.push(coordinate);
-			}
-			results.sort(function(a, b) { return a[0] > b[0] ? 1 : -1; });
-
-			var string = 'y = ' + Math.round(gradient*100) / 100 + 'x + ' + Math.round(intercept*100) / 100;
-
-			return {equation: [gradient, intercept], points: results, string: string};
+	var _fn = {
+		multiExtent: function(data, extent) {
+			return _multiExtent.extent(extent).getExtent(data);
 		},
-		logarithmic: function(data) {
-			var sum = [0, 0, 0, 0], n = 0, results = [];
-
-			for (len = data.length; n < len; n++) {
-				if (_pointValue.y(data[n]) != null) {
-					sum[0] += Math.log(_pointValue.x(data[n]));
-					sum[1] += _pointValue.y(data[n]) * Math.log(_pointValue.x(data[n]));
-					sum[2] += _pointValue.y(data[n]);
-					sum[3] += Math.pow(Math.log(_pointValue.x(data[n])), 2);
-				}
-			}
-
-			var B = (n * sum[1] - sum[2] * sum[0]) / (n * sum[3] - sum[0] * sum[0]);
-			var A = (sum[2] - B * sum[0]) / n;
-
-			for (var i = 0, len = data.length; i < len; i++) {
-				var coordinate = [_pointValue.x(data[i]), A + B * Math.log(_pointValue.x(data[i]))];
-				results.push(coordinate);
-			}
-			results.sort(function(a, b) { return a[0] > b[0] ? 1 : -1; });
-
-			var string = 'y = ' + Math.round(A*100) / 100 + ' + ' + Math.round(B*100) / 100 + ' ln(x)';
-
-			return {equation: [A, B], points: results, string: string};
+		onMouseOver: function(d, i, j) {
+			_element.g.points.select('#id_'+_pointValue.id(d)).transition()
+					.attr('r', '10')
+					.attr('fill-opacity', '1');
+			_element.g.axis.x.select('#id_'+_pointValue.id(d)).transition()
+					.attr('stroke-width', '2')
+					.attr('y2', '10');
+			_element.g.axis.y.select('#id_'+_pointValue.id(d)).transition()
+					.attr('stroke-width', '2')
+					.attr('x1', '-10');
+			
+			_dispatch.onmouseover(d, i, j, this);
 		},
-		power: function(data) {
-			var sum = [0, 0, 0, 0], n = 0, results = [];
-
-			for (len = data.length; n < len; n++) {
-            	if (_pointValue.y(data[n]) != null) {
-            		sum[0] += Math.log(_pointValue.x(data[n]));
-            		sum[1] += Math.log(_pointValue.y(data[n])) * Math.log(_pointValue.x(data[n]));
-            		sum[2] += Math.log(_pointValue.y(data[n]));
-            		sum[3] += Math.pow(Math.log(_pointValue.x(data[n])), 2);
-            	}
-            }
-			var B = (n * sum[1] - sum[2] * sum[0]) / (n * sum[3] - sum[0] * sum[0]);
-			var A = Math.pow(Math.E, (sum[2] - B * sum[0]) / n);
-
-			for (var i = 0, len = data.length; i < len; i++) {
-				var coordinate = [_pointValue.x(data[i]), A * Math.pow(_pointValue.x(data[i]), B)];
-				results.push(coordinate);
-			}
-            results.sort(function(a, b) { return a[0] > b[0] ? 1 : -1; });
-
-			var string = 'y = ' + Math.round(A*100) / 100 + 'x^' + Math.round(B*100) / 100;
-
-			return {equation: [A, B], points: results, string: string};
+		onMouseOut: function(d, i, j) {
+			_element.g.points.select('#id_'+_pointValue.id(d)).transition()
+					.attr('r', '5')
+					.attr('fill-opacity', '0.5');
+			_element.g.axis.x.select('#id_'+_pointValue.id(d)).transition()
+					.attr('stroke-width', '1')
+					.attr('y2', '6');
+			_element.g.axis.y.select('#id_'+_pointValue.id(d)).transition()
+					.attr('stroke-width', '1')
+					.attr('x1', '-6');
+			_dispatch.onmouseout(d, i, j, this);
 		},
-		exponential: function(data) {
-			var sum = [0, 0, 0, 0, 0, 0], n = 0, results = [];
-
-			for (len = data.length; n < len; n++) {
-				if (data[n][2] != null) {
-					sum[0] += _pointValue.x(data[n]);
-					sum[1] += _pointValue.y(data[n]);
-					sum[2] += _pointValue.x(data[n]) * _pointValue.x(data[n]) * _pointValue.y(data[n]);
-					sum[3] += _pointValue.y(data[n]) * Math.log(_pointValue.y(data[n]));
-					sum[4] += _pointValue.x(data[n]) * _pointValue.y(data[n]) * Math.log(_pointValue.y(data[n]));
-					sum[5] += _pointValue.x(data[n]) * _pointValue.y(data[n]);
-				}
-			}
-
-			var denominator = (sum[1] * sum[2] - sum[5] * sum[5]);
-			var A = Math.pow(Math.E, (sum[2] * sum[3] - sum[5] * sum[4]) / denominator);
-			var B = (sum[1] * sum[4] - sum[5] * sum[3]) / denominator;
-
-			for (var i = 0, len = data.length; i < len; i++) {
-				var coordinate = [_pointValue.x(data[i]), A * Math.pow(Math.E, B * _pointValue.x(data[i]))];
-				results.push(coordinate);
-			}
-            results.sort(function(a, b) { return a[0] > b[0] ? 1 : -1; });
-
-			var string = 'y = ' + Math.round(A*100) / 100 + 'e^(' + Math.round(B*100) / 100 + 'x)';
-
-			return {equation: [A, B], points: results, string: string};
-		},
-		polynomial: function(data, order) {
-			if(typeof order == 'undefined'){
-				order = 2;
-			}
-			var lhs = [], rhs = [], results = [], a = 0, b = 0, i = 0, k = order + 1, l, len;
-
-			for (; i < k; i++) {
-				for (l = 0, len = data.length; l < len; l++) {
-					if (_pointValue.y(data[l]) != null) {
-						a += Math.pow(_pointValue.x(data[l]), i) * _pointValue.y(data[l]);
-					}
-				}
-				lhs.push(a);
-				a = 0;
-				var c = [];
-				for (var j = 0; j < k; j++) {
-					for (l = 0, len = data.length; l < len; l++) {
-						if (_pointValue.y(data[l]) != null) {
-							b += Math.pow(_pointValue.x(data[l]), i + j);
-						}
-					}
-					c.push(b);
-					b = 0;
-				}
-				rhs.push(c);
-			}
-			rhs.push(lhs);
-
-			var equation = gaussianElimination(rhs, k);
-			for (i = 0, len = data.length; i < len; i++) {
-				var answer = 0;
-				for (var w = 0; w < equation.length; w++) {
-					answer += equation[w] * Math.pow(_pointValue.x(data[i]), w);
-				}
-				results.push([data[i][1], answer]);
-			}
-            results.sort(function(a, b) { return a[0] > b[0] ? 1 : -1; });
-
-			var string = 'y = ';
-			for(i = equation.length-1; i >= 0; i--){
-				if(i > 1) string += Math.round(equation[i] * Math.pow(10, i)) / Math.pow(10, i)  + 'x^' + i + ' + ';
-				else if (i == 1) string += Math.round(equation[i]*100) / 100 + 'x' + ' + ';
-				else string += Math.round(equation[i]*100) / 100;
-			}
-			return {equation: equation, points: results, string: string};
+		onClick: function(d, i, j) {
+			_dispatch.onclick(d, i, j, this);
 		}
 	};
 
-	function invokeTooltipCallback(d) { 
-		if (null != _tooltipCallback) {
-			return _tooltipCallback(d);
-		}
-	}
-
-	// Chart create/init method
 	function _instance(selection){}
 
-	function handleSVGMove() {
-		/*jshint validthis: true */
-		var mouse = d3.mouse(this);
-		var x = mouse[0] - _margin.right;
-		var xValue = _scale.x.invert(x);
-		var y = 0;
+	_instance.init = function(container) {
+		_element.div = container.append('div').attr('class', 'sentio scatter');
 
-		_paths.forEach(function(p) {
-			var opacity = 0;
-			if (xValue >= p.data[0][0] && xValue <= p.data[p.data.length-1][0] ) {
-				opacity = 1;
-				y = _generatePoint(xValue, p.eq);
-			}
-			_element.g.paths.selectAll('circle')
-				.filter(function(c) { return c.id === p.id; })
-				.attr('cx', x)
-				.attr('cy', _scale.y(y))
-				.attr('opacity', opacity);
-		});
-	}
-
-	function handleSVGLeave() {
-		_element.g.paths.selectAll('circle')
-			.attr('opacity', '0');
-	}
-
-
-	/*
-	 * Initialize the chart (should only call this once). Performs all initial chart
-	 * creation and setup
-	 */
-	_instance.init = function(container){
-		// Create the DIV element
-		_element.div = container.append('div').attr('class', 'sentio scatter-line');
-
-		_element.svg = _element.div.append('svg')
-			.on('mousemove', handleSVGMove)
-			.on('mouseleave', handleSVGLeave);
+		_element.svg = _element.div.append('svg');
 
 		_element.g.container = _element.svg.append('g');
 
-		_element.g.xAxis = _element.g.container.append('g').attr('class', 'x axis');
-		_element.g.yAxis = _element.g.container.append('g').attr('class', 'y axis');
+		_element.g.axis.x = _element.g.container.append('g').attr('class', 'x axis');
+		_element.g.axis.xLabel = _element.g.container.append('text').attr('class', 'scatter-axis-label').attr('text-anchor', 'end');
+		_element.g.axis.y = _element.g.container.append('g').attr('class', 'y axis');
+		_element.g.axis.yLabel = _element.g.container.append('text').attr('class', 'scatter-axis-label')
+				.attr('text-anchor', 'end')
+				.attr('x', -10).attr('y', 15)
+				.attr('transform', 'rotate(-90)');
 
-		_element.g.axisLabels.x = _element.svg.append('text')
-			.attr('class', 'scatter-axis-label')
-			.attr('text-anchor', 'end');
+		_element.g.lines = _element.g.container.append('g').attr('class', 'lines');
 
-		_element.g.axisLabels.y = _element.svg.append('text')
-			.attr('class', 'scatter-axis-label')
-			.attr('text-anchor', 'end')
-			.attr('x', -30)
-			.attr('y', 60)
-			.attr('dy', '.75em')
-			.attr('transform', 'rotate(-90)');
-
-		_element.g.points = _element.g.container.append('g').attr('class', 'points');
-
-		_element.g.pointFocus.g = _element.g.container.append('g')
-			.attr('class', 'point-focus');
-		_element.g.pointFocus.x = _element.g.pointFocus.g.append('line')
-			.attr('stroke-width', '1')
-			.attr('x1', '0' );
-		_element.g.pointFocus.y = _element.g.pointFocus.g.append('line')
-			.attr('stroke-width', '1')
-			.attr('y1', _height - _margin.top - _margin.bottom + 5); // Dunno why this needs a 5
-
-		_element.g.paths = _element.g.container.append('g').attr('class', 'scatter-plots');
-
-		_element.g.legend = _element.g.container.append('g').attr('class', 'scatter-legend');
-
-		_element.tooltip = _element.div.append('div').attr('class', 'sentio-tooltip');
+		_element.g.points = _element.g.container.append('g').attr('class', 'point-groups');
 
 		_instance.resize();
 
 		return _instance;
 	};
 
-	/*
-	 * Set the _instance data
-	 */
-	_instance.data = function(v) {
-		if(!arguments.length) { return _data; }
-		_data = v || [];
-		_interactableData = _data.filter(function(d) { 
-			return _pointValue.interactable(d);
-		});
-
-		return _instance;
-	};
-
-	_instance.axes = function(v) {
-		if(!arguments.length) { return _axis.labels; }
-		_axis.labels.x = v.x;
-		_axis.labels.y = v.y;
-		_axis.labels.m = v.m;
-		return _instance;
-	};
-
-	_instance.groups = function(v) {
-		if(!arguments.length) { return _groups; }
-		_groups.groups = v;
-		_groups.hidden = {};
-		return _instance;
-	};
-
-	/*
-	 * Updates all the elements that depend on the size of the various components
-	 */
 	_instance.resize = function() {
-		// Set up the x scale (y is fixed)
-		_scale.x.range([0, _width - _margin.right - _margin.left]);
-		_scale.y.range([_height - _margin.bottom - _margin.top, 0]);
+		_element.svg.attr('width', _layout.width).attr('height', _layout.height);
 
-		_element.svg.attr('width', _width).attr('height', _height);
+		_scale.x.range([0, _layout.width - _layout.margin.right - _layout.margin.left]);
+		_scale.y.range([_layout.height - _layout.margin.top - _layout.margin.bottom, 0]);
 
-		_element.g.xAxis.attr('transform', 'translate(0,' + _scale.y.range()[0] + ')');
+		_element.g.axis.x.attr('transform', 'translate(0,' + _scale.y.range()[0] + ')');
 
-		_element.g.container.attr('transform', 'translate('+_margin.left+','+_margin.top+')');
+		_element.g.container.attr('transform', 'translate(' + _layout.margin.left + ',' + _layout.margin.top + ')');
 
-		return _instance;
-	};
-
-	function groupPoints(data) {
-		var ret = {};
-		data.forEach(function(d) {
-			var groupName = _pointValue.group(d);
-			if (!ret[groupName]) {
-				ret[groupName] = [d];
-			} else {
-				ret[groupName].push(d);
-			}
-		});
-		return ret;
-	}
-
-	function generatePaths(visibleData) {
-		_paths = [];
-		var eq, points;
-		if (_lineGrouping) {
-			var groupedData = groupPoints(visibleData);
-			for (var groupName in groupedData) {
-				if (groupedData[groupName].length > 1) {
-					eq = _regression_fn[_lineMethod](groupedData[groupName]);
-					if (eq.points.length > 0) {
-						points = _generatePoints(eq);
-						var groupObj = _groups.groups[groupName];
-						if (groupObj) {
-							_paths.push({id: groupName, data: points, color: groupObj.color, eq: eq});
-						}
-					}
-				}
-			}
-		} else {
-			eq = _regression_fn[_lineMethod](visibleData);
-			if (eq.points.length > 0) {
-				points = _generatePoints(eq);
-				_paths.push({id: 'scatter_group_path', data: points, color: _groupLineColor, eq: eq});
-			}
-		}
-	}
-
-	/*
-	 * Redraw the graphic
-	 */
-	_instance.redraw = function() {
-
-		var visibleData = _data.filter(function(d) {
-			return !_redrawOnHide || !_groups.hidden[_pointValue.group(d)];
-		});
-
-		var xDomain = _extent.x.getExtent(visibleData);
-		var yDomain = _extent.y.getExtent(visibleData);
-		_xBuffer = xDomain[1] - xDomain[0] === 0 ? Math.ceil((xDomain[1]) * 0.1) : Math.ceil((xDomain[1] - xDomain[0]) * 0.1);
-		_yBuffer = yDomain[1] - yDomain[0] === 0 ? Math.ceil((yDomain[1]) * 0.1) : Math.ceil((yDomain[1] - yDomain[0]) * 0.1);
-
-		xDomain[0] = 0;
-		xDomain[1] += _xBuffer;
-		_scale.x.domain(xDomain);
-
-		yDomain[0] = 0;
-		yDomain[1] += _yBuffer;
-		_scale.y.domain(yDomain);
-
-		generatePaths(visibleData);
-
-		updateAxes();
-		updateLegend();
-		updatePoints();
-		updatePaths();
+		_axis.x.innerTickSize(-(_layout.height - _layout.margin.top - _layout.margin.bottom));
+		_axis.y.innerTickSize(-(_layout.width - _layout.margin.left - _layout.margin.right));
 
 		return _instance;
 	};
+
+	function updateTicks(axis) {
+		var ticksJoin = _element.g.axis[axis]
+				.selectAll('.point-ticks')
+				.data(_data);
+
+		ticksJoin.enter().append('g')
+				.attr('class', 'point-ticks');
+
+		var tickJoin = ticksJoin
+				.selectAll('.point-tick')
+				.data(function(d) { return d; });
+
+		tickJoin.enter().append('line')
+				.attr('class', 'point-tick')
+				.attr('id', function(d) { return 'id_' + _pointValue.id(d); })
+				.attr('stroke-width', '1');
+		
+		tickJoin.transition()
+				.attr('y1', function(d) { return axis === 'x' ? 0 : _scale.y(_pointValue.y(d)); })
+				.attr('y2', function(d) { return axis === 'x' ? 6 : _scale.y(_pointValue.y(d)); })
+				.attr('x1', function(d) { return axis === 'y' ? -6 : _scale.x(_pointValue.x(d)); })
+				.attr('x2', function(d) { return axis === 'y' ? 0 : _scale.x(_pointValue.x(d)); })
+				.attr('stroke', function(d, i, j) { return _scale.color(j); });
+
+		tickJoin.exit().remove();
+		ticksJoin.exit().remove();
+	}
 
 	function updateAxes() {
-		// Update actual Axes
-		_axis.x = _axis.x.innerTickSize(-(_height - _margin.top - _margin.bottom)).ticks(5);
-		_axis.y = _axis.y.innerTickSize(-(_width - _margin.left - _margin.right)).ticks(5);
+		_element.g.axis.xLabel.transition()
+				.attr('x', _layout.width - _layout.margin.left - _layout.margin.right - 10)
+				.attr('y', _layout.height - _layout.margin.top - _layout.margin.bottom - 10)
+				.text(_axis.labels[0]);
 
-		_element.g.axisLabels.x
-			.transition()
-			.attr('x', _width - _margin.left - _margin.right + 35)
-			.attr('y', _height - _margin.top - _margin.bottom + 10)
-			.text(_axis.labels.x);
-
-		_element.g.axisLabels.y
-			.transition()
-			.text(_axis.labels.y);
+		_element.g.axis.yLabel.transition()
+				.text(_axis.labels[1]);
 
 		if (null != _axis.x) {
-			_element.g.xAxis.transition()
-				.call(_axis.x)
-				.selectAll('text')
-				.attr('y', 10);
+			_element.g.axis.x.transition()
+					.call(_axis.x).selectAll('text')
+					.attr('y', 10);
 		}
+
 		if (null != _axis.y) {
-			_element.g.yAxis.transition()
-				.call(_axis.y)
-				.selectAll('text')
-				.attr('x', -10);
+			_element.g.axis.y.transition()
+					.call(_axis.y).selectAll('text')
+					.attr('x', -10);
 		}
 
-		// Update point ticks on x axis
-		var xAxisTickJoin = _element.g.xAxis
-			.selectAll('.point-x-tick')
-			.data(_interactableData, function(d) { return _pointValue.id(d); });
-
-		var xAxisTickEnter = xAxisTickJoin.enter().append('line');
-
-		xAxisTickEnter
-			.attr('class', 'point-x-tick')
-			.attr('y1', 0)
-			.attr('y2', 6)
-			.attr('stroke-width', '1');
-
-		xAxisTickJoin.transition()
-			.attr('opacity', function(d) { return _groups.hidden[_pointValue.group(d)] ? '0' : '1'; })
-			.attr('x1', function(d) { return _scale.x(_pointValue.x(d)); })
-			.attr('x2', function(d) { return _scale.x(_pointValue.x(d)); })
-			.attr('stroke', function(d) { return _groups.groups[_pointValue.group(d)].color; });
-
-		xAxisTickJoin.exit().remove();
-
-
-		// Update point ticks on y axis
-		var yAxisTickJoin = _element.g.yAxis
-			.selectAll('.point-y-tick')
-			.data(_interactableData, function(d) { return _pointValue.id(d); });
-
-		var yAxisTickEnter = yAxisTickJoin.enter().append('line');
-
-		yAxisTickEnter
-			.attr('class', 'point-y-tick')
-			.attr('x1', -6)
-			.attr('x2', 0)
-			.attr('stroke-width', '1');
-
-		yAxisTickJoin.transition()
-			.attr('opacity', function(d) { return _groups.hidden[_pointValue.group(d)] ? '0' : '1'; })
-			.attr('y1', function(d) { return _scale.y(_pointValue.y(d)); })
-			.attr('y2', function(d) { return _scale.y(_pointValue.y(d)); })
-			.attr('stroke', function(d) { return _groups.groups[_pointValue.group(d)].color; });
-
-		yAxisTickJoin.exit().remove();
-	}
-
-	function handleLegendClick(d) {
-		if (_groups.hidden[d.label]) {
-			delete _groups.hidden[d.label];
-		} else {
-			_groups.hidden[d.label] = d;
-		}
-		if (Object.keys(_groups.groups).length === Object.keys(_groups.hidden).length) {
-			_groups.hidden = {};
-		}
-		_instance.redraw();
-	}
-
-	function updateLegend() {
-		var groupsArray = Object.keys(_groups.groups).map(function(key) { return _groups.groups[key]; });
-		var legendJoin = _element.g.legend
-			.selectAll('.scatter-legend')
-			.data(groupsArray);
-
-		var legendEnter = legendJoin.enter().append('g')
-			.attr('class', 'scatter-legend')
-			.on('click', handleLegendClick);
-
-		legendJoin.transition()
-			.attr('opacity', function(d) { 
-				var ret;
-				if (_showLegend) {
-					ret = _groups.hidden[d.label] ? '0.2' : '1';
-				} else {
-					ret = '0';
-				}
-				return ret;
-			});
-
-
-		var iconEnter = legendEnter.append('circle');
-		var iconUpdate = legendJoin.select('circle');
-
-		var labelEnter = legendEnter.append('text');
-		var labelUpdate = legendJoin.select('text');
-
-		iconEnter
-			.attr('r', '8')
-			.attr('stroke-width', '2')
-			.attr('fill-opacity', '0.75');
-
-		iconUpdate.transition().duration(100)
-			.attr('cx', _width - _margin.right - _margin.left)
-			.attr('cy', function(d, i) { return i * 25; })
-			.attr('fill', function(d) { return d.color; })
-			.attr('stroke', function(d) { return d.color; });
-
-		labelEnter
-			.attr('text-anchor', 'end');
-
-		labelUpdate.transition().duration(100)
-			.attr('x', _width - _margin.right - _margin.left - 20)
-			.attr('y', function(d, i) { return (i * 25) + 3; })
-			.text(function(d) { return d.label; });
-
-
-		legendJoin.exit().remove();
-	}
-
-	function handlePointEnter(d) {
-
-		// Hide other points
-		_element.g.points.selectAll('.point')
-			.filter(function(p) { return _pointValue.id(p) !== _pointValue.id(d); })
-			.transition().duration(100)
-			.attr('opacity', function(p) { return _groups.hidden[_pointValue.group(p)] ? '0' : '0.2'; });
-
-		// Hide ticks for other points
-		_element.g.xAxis.selectAll('.point-x-tick')
-			.filter(function(p) { return _pointValue.id(p) !== _pointValue.id(d); })
-			.transition().duration(100)
-			.attr('opacity', function(p) { return _groups.hidden[_pointValue.group(p)] ? '0' : '0.2'; });
-		_element.g.yAxis.selectAll('.point-y-tick')
-			.filter(function(p) { return _pointValue.id(p) !== _pointValue.id(d); })
-			.transition().duration(100)
-			.attr('opacity', function(p) { return _groups.hidden[_pointValue.group(p)] ? '0' : '0.2'; });
-
-		// Move and show point focus lines
-		_element.g.pointFocus.x.transition().duration(100)
-			.attr('opacity', '0.4')
-			.attr('x2', _scale.x(_pointValue.x(d)) )
-			.attr('y1', _scale.y(_pointValue.y(d)) )
-			.attr('y2', _scale.y(_pointValue.y(d)) )
-			.attr('stroke', _groups.groups[_pointValue.group(d)].color );
-		_element.g.pointFocus.y.transition().duration(100)
-			.attr('opacity', '0.4')
-			.attr('x1', _scale.x(_pointValue.x(d)) )
-			.attr('x2', _scale.x(_pointValue.x(d)) )
-			.attr('y2', _scale.y(_pointValue.y(d)) )
-			.attr('stroke', _groups.groups[_pointValue.group(d)].color );
-
-		_element.tooltip.html(invokeTooltipCallback({d: d}));
-		var tooltip_width = _element.tooltip.node().getBoundingClientRect().width;
-		var tooltip_height = _element.tooltip.node().getBoundingClientRect().height;
-		_element.tooltip
-			.style('left', (_scale.x(_pointValue.x(d)) + 2*_margin.left-20) + 'px')
-			.style('top', (_scale.y(_pointValue.y(d)) + 2*_margin.top+40 - tooltip_height) + 'px');
-		_element.tooltip.transition().duration(1000).style('visibility', 'visible');
-	}
-
-	function handlePointExit(d) {
-		_element.g.points.selectAll('.point')
-			.transition().duration(100)
-			.attr('opacity', function(p) { return _groups.hidden[_pointValue.group(p)] ? '0' : '1'; });
-
-		_element.g.xAxis.selectAll('.point-x-tick')
-			.filter(function(p) { return _pointValue.id(p) !== _pointValue.id(d); })
-			.transition().duration(100)
-			.attr('opacity', function(p) { return _groups.hidden[_pointValue.group(p)] ? '0' : '1'; });
-		_element.g.yAxis.selectAll('.point-y-tick')
-			.filter(function(p) { return _pointValue.id(p) !== _pointValue.id(d); })
-			.transition().duration(100)
-			.attr('opacity', function(p) { return _groups.hidden[_pointValue.group(p)] ? '0' : '1'; });
-
-		_element.g.pointFocus.x.transition().duration(100)
-			.attr('opacity', '0');
-		_element.g.pointFocus.y.transition().duration(100)
-			.attr('opacity', '0');
-
-
-		_element.tooltip.transition().duration(1000).style('visibility', 'hidden');
+		updateTicks('x');
+		updateTicks('y');
 	}
 
 	function updatePoints() {
+		var pointsJoin = _element.g.points
+				.selectAll('.points')
+				.data(_data);
+		
+		pointsJoin.enter().append('g')
+				.attr('class', 'points');
 
-		var pointJoin = _element.g.points
-			.selectAll('.point')
-			.data(_interactableData, function(d) { return _pointValue.id(d)+'_'+_pointValue.x(d)+'_'+_pointValue.y(d); });
+		var pointJoin = pointsJoin
+				.selectAll('.point')
+				.data(function(d) { return d; });
 
-		var pointEnter = pointJoin.enter().append('g')
-			.attr('class', 'point')
-			.attr('opacity', '1')
-			.on('mouseover', handlePointEnter)
-			.on('mouseleave', handlePointExit);
+		pointJoin.enter().append('circle')
+				.attr('class', 'point')
+				.attr('r', '5')
+				.attr('fill-opacity', '0.5')
+				.attr('stroke-width', '1')
+				.on('mouseover', _fn.onMouseOver)
+				.on('mouseout', _fn.onMouseOut)
+				.on('click', _fn.onClick);
 
 		pointJoin.transition()
-			.attr('opacity', function(d) { return _groups.hidden[_pointValue.group(d)] ? '0' : '1'; })
-			.attr('pointer-events', function(d) { return _groups.hidden[_pointValue.group(d)] ? 'none' : 'auto'; });
-
-		var circleEnter = pointEnter.append('circle');
-		var circleUpdate = pointJoin.select('circle');
-
-		circleEnter
-			.attr('r', '5')
-			.attr('fill-opacity', '0.5')
-			.attr('stroke-width', '1');
-
-		circleUpdate.transition()
-			.attr('fill', function(d, i) { return _groups.groups[_pointValue.group(d)].color; })
-			.attr('stroke', function(d, i) { return _groups.groups[_pointValue.group(d)].color; })
-			.attr('cx', function(d) { return _scale.x(_pointValue.x(d)); })
-			.attr('cy', function(d) { return _scale.y(_pointValue.y(d)); });
-
+				.attr('id', function(d) { return 'id_' + _pointValue.id(d); })
+				.attr('cx', function(d) { return _scale.x(_pointValue.x(d)); })
+				.attr('cy', function(d) { return _scale.y(_pointValue.y(d)); })
+				.attr('fill', function(d, i, j) { return _scale.color(j); })
+				.attr('stroke', function(d, i, j) { return _scale.color(j); });
+		
 		pointJoin.exit().remove();
+
+		pointsJoin.exit().remove();
 	}
 
-	function updatePaths() {
+	function updateLines() {
+		var lineJoin = _element.g.lines
+				.selectAll('.line')
+				.data(_lineData);
 
-		var pathJoin = _element.g.paths
-			.selectAll('.scatter-path')
-			.data(_paths, function(d) { return d.id; });
+		lineJoin.enter().append('path')
+				.attr('class', 'line')
+				.attr('stroke-width', '2px')
+				.attr('fill-opacity', '0');
 
-		var pathEnter = pathJoin.enter().append('g')
-			.attr('class', 'scatter-path')
-			.attr('opacity', '1');
+		lineJoin.transition()
+				.attr('stroke', function(d, i) { return _scale.color(i); })
+				.attr('d', function(d) { return _line(d); });
 
-		var lineEnter = pathEnter.append('path');
-		var lineUpdate = pathJoin.select('path');
-
-		var pointEnter = pathEnter.append('circle');
-		var pointUpdate = pathJoin.select('circle');
-
-		lineEnter
-			.attr('stroke-width', '1.5')
-			.attr('fill', 'none');
-
-		lineUpdate.transition()
-			.attr('stroke', function(d) { return d.color; })
-			.attr('d', function(d) { return _line(d.data); });
-
-		pointEnter
-			.attr('r', '5')
-			.attr('cx', '0')
-			.attr('cy', '0')
-			.attr('stroke-width', '.5')
-			.attr('stroke', 'white')
-			.attr('opacity', '0');
-
-		pointUpdate.transition()
-			.attr('fill', function(d) { return d3.rgb(d.color).brighter(); });
-
-		pathJoin.exit().transition().attr('opacity', '0').remove();
+		lineJoin.exit().remove();
 	}
 
-	// Basic Getters/Setters
-	_instance.width = function(v) {
-		if(!arguments.length) { return _width; }
-		_width = v;
+	_instance.redraw = function() {
+
+		var xDomain = _fn.multiExtent(_data, _extent.x);
+		var xBuffer = Math.ceil((xDomain[1] - xDomain[0] - 1) * _config.paddingRatio);
+		xDomain = [xDomain[0]-xBuffer, xDomain[1]+xBuffer];
+		var yDomain = _fn.multiExtent(_data, _extent.y);
+		var yBuffer = Math.ceil((yDomain[1] - yDomain[0] - 1) * _config.paddingRatio);
+		yDomain = [yDomain[0]-yBuffer, yDomain[1]+yBuffer];
+
+		_scale.x.domain(xDomain);
+		_scale.y.domain(yDomain);
+
+		updateAxes();
+		updatePoints();
+		updateLines();
+
 		return _instance;
 	};
-	_instance.height = function(v) {
-		if(!arguments.length) { return _height; }
-		_height = v;
+
+	_instance.data = function(d) {
+		if(!arguments.length) { return _data; }
+		_data = d;
 		return _instance;
 	};
-	_instance.lineGrouping = function(v) {
-		if(!arguments.length) { return _lineMethod; }
-		_lineGrouping = v;
+	_instance.lineData = function(d) {
+		if(!arguments.length) { return _lineData; }
+		_lineData = d;
 		return _instance;
 	};
-	_instance.lineMethod = function(v) {
-		if(!arguments.length) { return _lineMethod; }
-		_lineMethod = v;
+	_instance.axes = function(a) {
+		if(!arguments.length) { return _axis.labels; }
+		_axis.labels = a;
 		return _instance;
 	};
-	_instance.showLegend = function(v) {
-		if(!arguments.length) { return _showLegend; }
-		_showLegend = v;
+	_instance.width = function(d) {
+		if(!arguments.length) { return _layout.width; }
+		_layout.width = d;
 		return _instance;
 	};
-	_instance.tooltipCallback = function(v) { 
-		if(!arguments.length) { return _tooltipCallback; }
-		_tooltipCallback = v;
+	_instance.height = function(d) {
+		if(!arguments.length) { return _layout.height; }
+		_layout.height = d;
 		return _instance;
 	};
-	_instance.redrawOnHide = function(v) {
-		if(!arguments.length) { return _redrawOnHide; }
-		_redrawOnHide = v;
+	_instance.dispatch = function(d) {
+		if(!arguments.length) { return _dispatch; }
+		_dispatch = d;
 		return _instance;
 	};
-	_instance.hiddenSeries = function(v) {
-		if(!arguments.length) { return _groups.hidden; }
-		_groups.hidden = v.map(function(s) { return s; });
-		return _instance;
-	};
-	_instance.groupLineColor = function(v) { 
-		if(!arguments.length) { return _groupLineColor; }
-		_groupLineColor = v;
+	_instance.color = function(d) {
+		if(!arguments.length) { return _scale.color; }
+		_scale.color = d;
 		return _instance;
 	};
 
 	return _instance;
-
 }

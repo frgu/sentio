@@ -1,29 +1,26 @@
 /*! sentio Version: 0.7.7 */
 angular.module('sentio', []);
 angular.module('sentio.realtime', []);
-angular.module('sentio').directive('sentioScatterLineChart', [ '$document', '$window', '$timeout', '$log',
-function($document, $window, $timeout, $log) {
+angular.module('sentio').directive('sentioScatterChart', ['$document', '$window', '$timeout', '$log',
+function($document, $window, $timeout,$log) {
 	'use strict';
 
 	return {
-		restrict : 'A',
-		scope : {
+		restrict: 'A',
+		scope: {
 			model: '=sentioModel',
+			lineModel: '=sentioLineModel',
+			axes: '=sentioAxes',
 			resizeWidth: '@sentioResizeWidth',
 			resizeHeight: '@sentioResizeHeight',
-			lineGrouping: '=sentioLineGrouping',
-			lineMethod: '=sentioLineMethod',
-			showLegend: '=sentioShowLegend',
-			tooltipCallbackFn: '&sentioTooltipCallbackFn',
-			redrawOnHide: '=sentioRedrawOnHide',
-			hiddenSeries: '=sentioHiddenSeries',
-			groupLineColor: '=sentioGroupLineColor'
+			configureFn: '&sentioConfigureFn',
+			colorScale: '=sentioColorScale'
 		},
-		replace : false,
-		link : function(scope, element, attrs, controller) {
+		replace: false,
+		link: function(scope, element, attrs, controller) {
 
 			var chartElement = d3.select(element[0]);
-			var chart = sentio.chart.scatterLine();
+			var chart = sentio.chart.scatter();
 
 			// Extract the width of the chart
 			var width = element[0].style.width;
@@ -39,57 +36,29 @@ function($document, $window, $timeout, $log) {
 
 			chart.init(chartElement);
 
-			scope.$watchCollection('model', function(n, o){
+			scope.$watchGroup(['model', 'lineModel'], function(n, o) {
+				if(null == o[0] && null == n[0] &&
+				   null == o[1] && null == n[1]){ return; }
+				chart.data(n[0]);
+				chart.lineData(n[1]);
+				redraw();
+			});
+
+			scope.$watch('axes', function(n, o) {
 				if(null == o && null == n){ return; }
-				chart.axes(n[0]);
-				chart.groups(n[1]);
-				chart.data(n[2]);
+				chart.axes(n);
 				redraw();
 			});
 
-			scope.$watch('lineGrouping', function(n, o) {
-				if(null == o && null == n){ return; }
-				chart.lineGrouping(n);
-				redraw();
-			});
-
-			scope.$watch('lineMethod', function(n, o){
-				if(null == o && null ==n){ return; }
-
-				chart.lineMethod(n);
-				redraw();
-			});
-
-			scope.$watch('showLegend', function(n, o) {
-				if (null == o && null == n){ return; }
-				
-				chart.showLegend(n);
-				redraw();
-			});
-
-			scope.$watch('tooltipCallbackFn', function(n, o) {
-				if (null != scope.tooltipCallbackFn) {
-					chart.tooltipCallback(scope.tooltipCallbackFn);
+			scope.$watch('configureFn', function(n, o) {
+				if(null != scope.configureFn) {
+					scope.configureFn({ chart: chart });
 				}
 			});
 
-			scope.$watch('redrawOnHide', function(n, o) {
-				if (null == o && null == n) { return; }
-
-				chart.redrawOnHide(n);
-			});
-
-			scope.$watch('hiddenSeries', function(n, o) {
-				if (null == o && null == n) { return; }
-
-				chart.hiddenSeries(n);
-				redraw();
-			});
-
-			scope.$watch('groupLineColor', function(n, o) {
-				if (null == o && null == n) { return; }
-
-				chart.groupLineColor(n);
+			scope.$watch('colorScale', function(n, o) {
+				if(null == o && null == n){ return; }
+				chart.color(n);
 				redraw();
 			});
 
@@ -153,9 +122,9 @@ function($document, $window, $timeout, $log) {
 			scope.$on('$destroy', function () {
 				window.off('resize', delayResize);
 			});
+
 		}
 	};
-
 }]);
 angular.module('sentio').directive('sentioChordDiagram', ['$document', '$window', '$timeout', '$log',
 function($document, $window, $timeout, $log) {
