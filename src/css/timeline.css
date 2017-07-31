@@ -4,12 +4,6 @@
 =======================================
 */
 
-.sentio.timeline .line {
-	fill: none;
-	stroke: #000;
-	stroke-width: 1.5px;
-}
-
 .sentio.timeline .marker line {
 	stroke: #F00;
 	stroke-width: 1;
@@ -20,16 +14,20 @@
 	cursor:pointer;
 }
 
-.sentio.timeline .area {
-	fill: #eee;
-	stroke: none;
-}
-
 .sentio.timeline .axis path,
-.sentio.timeline .axis line {
+.sentio.timeline .axis > g line {
+	pointer-events: none;
 	fill: none;
 	stroke: #000;
 	shape-rendering: crispEdges;
+}
+
+.sentio.timeline .axis > g line {
+	stroke: rgba(150, 150, 150, 0.1);
+}
+
+.sentio.timeline .axis path {
+	stroke: rgba(128, 128, 128, 1);
 }
 
 .sentio.timeline .brush .extent {

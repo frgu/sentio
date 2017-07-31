@@ -14,6 +14,8 @@ function($document, $window, $timeout, $log) {
 			resizeWidth: '@sentioResizeWidth',
 			resizeHeight: '@sentioResizeHeight',
 			configureFn: '&sentioConfigureFn',
+			resizeFn: '&sentioOnResizeFn',
+			redrawFn: '&sentioOnRedrawFn',
 			filterFn: '&sentioFilterFn',
 			filterState: '=sentioFilterState'
 		},
@@ -140,6 +142,9 @@ function($document, $window, $timeout, $log) {
 				}
 				redrawTimer = $timeout(function () {
 					timeline.redraw();
+					if (null != scope.redrawFn) {
+						scope.redrawFn();
+					}
 				}, 0);
 			};
 
@@ -172,6 +177,9 @@ function($document, $window, $timeout, $log) {
 				if(resizeHeight){ timeline.height(height); }
 
 				timeline.resize();
+				if (null != scope.resizeFn) {
+					scope.resizeFn();
+				}
 				redraw();
 			};
 			var delayResize = function(){

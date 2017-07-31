@@ -8,6 +8,10 @@ function sentio_timeline_line() {
 	var _margin = { top: 10, right: 10, bottom: 20, left: 40 };
 	var _height = 100, _width = 600;
 
+	var _config = {
+		showPoints: false
+	};
+
 	/*
 	 * Callback function for hovers over the markers. Invokes this function
 	 * with the data from the marker payload
@@ -17,7 +21,8 @@ function sentio_timeline_line() {
 	// Default accessors for the dimensions of the data
 	var _value = {
 		x: function(d, i) { return d[0]; },
-		y: function(d, i) { return d[1]; }
+		y: function(d, i) { return d[1]; },
+		dispatch: d3.dispatch('onmouseover', 'onmouseout', 'onclick')
 	};
 
 	// Accessors for the positions of the markers
@@ -47,7 +52,8 @@ function sentio_timeline_line() {
 	// Default Axis definitions
 	var _axis = {
 		x: d3.svg.axis().scale(_scale.x).orient('bottom'),
-		y: d3.svg.axis().scale(_scale.y).orient('left').ticks(3)
+		y: d3.svg.axis().scale(_scale.y).orient('left').ticks(3),
+		labels: ['','']
 	};
 
 	// g elements
@@ -56,8 +62,11 @@ function sentio_timeline_line() {
 		g: {
 			container: undefined,
 			plots: undefined,
+			points: undefined,
 			xAxis: undefined,
+			xAxisLabel: undefined,
 			yAxis: undefined,
+			yAxisLabel: undefined,
 			markers: undefined,
 			brush: undefined
 		},
@@ -146,8 +155,19 @@ function sentio_timeline_line() {
 		// Append a container for everything
 		_element.g.container = _element.svg.append('g');
 
+		// Append groups for the axes
+		_element.g.xAxis = _element.g.container.append('g').attr('class', 'x axis');
+		_element.g.xAxisLabel = _element.g.container.append('text').attr('class', 'timeline-axis-label')
+				.attr('text-anchor', 'end');
+		_element.g.yAxis = _element.g.container.append('g').attr('class', 'y axis');
+		_element.g.yAxisLabel = _element.g.container.append('text').attr('class', 'timeline-axis-label')
+				.attr('text-anchor', 'end')
+				.attr('x', -10).attr('y', 15)
+				.attr('transform', 'rotate(-90)');
+
 		// Append the path group (which will have the clip path and the line path
 		_element.g.plots = _element.g.container.append('g').attr('class', 'plots').attr('clip-path', 'url(#plot_' + _id + ')');
+		_element.g.points = _element.g.container.append('g').attr('class', 'points');
 
 		// If the filter is enabled, add it
 		if(_filter.enabled) {
@@ -162,10 +182,6 @@ function sentio_timeline_line() {
 
 		// Append a group for the markers
 		_element.g.markers = _element.g.container.append('g').attr('class', 'markers').attr('clip-path', 'url(#marker_' + _id + ')');
-
-		// Append groups for the axes
-		_element.g.xAxis = _element.g.container.append('g').attr('class', 'x axis');
-		_element.g.yAxis = _element.g.container.append('g').attr('class', 'y axis');
 
 		_instance.resize();
 
@@ -261,6 +277,10 @@ function sentio_timeline_line() {
 		// Update the plot elements
 		updateAxes();
 		updateLine();
+		if (_config.showPoints)
+			updatePoints();
+		else 
+			_element.g.points.selectAll('.points').remove();
 		updateMarkers();
 		updateFilter(filterExtent);
 
@@ -269,11 +289,21 @@ function sentio_timeline_line() {
 
 	function updateAxes() {
 		if(null != _axis.x) {
-			_element.g.xAxis.call(_axis.x);
+			_element.g.xAxis.transition().call(_axis.x)
+				.selectAll("text")
+				.attr('y', 10);
 		}
 		if(null != _axis.y) {
-			_element.g.yAxis.call(_axis.y);
+			_element.g.yAxis.transition().call(_axis.y)
+				.selectAll("text")
+				.attr('x', -10);
 		}
+		_element.g.xAxisLabel.transition()
+				.attr('x', _width - _margin.left - _margin.right - 10)
+				.attr('y', _height - _margin.top - _margin.bottom - 10)
+				.text(_axis.labels[0]);
+		_element.g.yAxisLabel.transition()
+				.text(_axis.labels[1]);
 	}
 
 	function updateLine() {
@@ -286,6 +316,7 @@ function sentio_timeline_line() {
 
 		// Enter
 		var plotEnter = plotJoin.enter().append('g')
+			.attr('id', function(d) { return d.key; })
 			.attr('class', 'plot');
 
 		plotEnter.append('g').append('path').attr('class', function(d) { return ((d.cssClass)? d.cssClass : '') + ' line'; });
@@ -295,13 +326,56 @@ function sentio_timeline_line() {
 		var areaUpdate = plotJoin.select('.area');
 
 		// Update
-		lineUpdate.datum(function(d) { return d.data; }).attr('d', _line);
-		areaUpdate.datum(function(d) { return d.data; }).attr('d', _area.y0(_scale.y.range()[0]));
+		lineUpdate.transition()
+			.attr('stroke', function(d) { return d.attributes ? d.attributes['stroke-path'] || '#000' : '#000'; })
+			.attr('fill', function(d) { return d.attributes ? d.attributes['fill-path'] || 'none' : 'none'; })
+			.attr('stroke-width', function(d) { return  d.attributes ? d.attributes['stroke-width'] || '1.5px' : '1.5px'; })
+			.attr('stroke-opacity', function(d) { return d.attributes ? d.attributes['stroke-opacity'] || '1' : '1'; })
+			.attr('d', function(d) { return _line(d.data); });
+		areaUpdate.transition()
+			.attr('stroke', function(d) { return d.attributes ? d.attributes['stroke-area'] || 'none' : 'none'; })
+			.attr('fill', function(d) { return d.attributes ? d.attributes['fill-area'] || '#eee' : '#eee'; })
+			.attr('fill-opacity', function(d) { return d.attributes ? d.attributes['fill-opacity'] || '1' : '1'; })
+			.attr('d', function(d) { return _area.y0(_scale.y.range()[0])(d.data); });
 
 		// Exit
 		var plotExit = plotJoin.exit();
 		plotExit.remove();
 
+	}
+
+	function updatePoints() {
+		var pointsJoin = _element.g.points
+			.selectAll('.points')
+			.data(_data, function(d) { 
+				return d.key;
+			});
+
+		pointsJoin.enter().append('g')
+			.attr('class', 'points');
+
+		var pointJoin = pointsJoin
+			.selectAll('.point')
+			.data(function(d) { return d.data; });
+
+		pointJoin.enter().append('circle')
+			.attr('class', 'point')
+			.attr('r', '2')
+			.attr('stroke-width', '5')
+			.attr('stroke-opacity', '0')
+			.on('mouseover', function(d, i, j) { _value.dispatch.onmouseover(d, i, j, this); })
+			.on('mouseout', function(d, i, j) { _value.dispatch.onmouseout(d, i, j, this); })
+			.on('click', function(d, i, j) { _value.dispatch.onclick(d, i, j, this); });
+
+		pointJoin.transition()
+			.attr('cx', function(d) { return _scale.x(_value.x(d)); })
+			.attr('cy', function(d) { return _scale.y(_value.y(d)); })
+			.attr('stroke', function(d, i, j) { return _data[j].attributes ? _data[j].attributes['stroke-path'] || '#000' : '#000'; })
+			.attr('fill', function(d, i, j) { return _data[j].attributes ? _data[j].attributes['fill-area'] || '#eee' : '#eee'; });
+
+		pointJoin.exit().remove();
+
+		pointsJoin.exit().remove();
 	}
 
 	function updateMarkers() {
@@ -432,6 +506,11 @@ function sentio_timeline_line() {
 		_margin = v;
 		return _instance;
 	};
+	_instance.points = function(v){
+		if(!arguments.length) { return _value.dispatch; }
+		_config.showPoints = v;
+		return _instance;
+	};
 	_instance.interpolation = function(v){
 		if(!arguments.length) { return _line.interpolate(); }
 		_line.interpolate(v);
@@ -446,6 +525,11 @@ function sentio_timeline_line() {
 	_instance.yAxis = function(v){
 		if(!arguments.length) { return _axis.y; }
 		_axis.y = v;
+		return _instance;
+	};
+	_instance.axisLabels = function(v){
+		if(!arguments.length) { return _axis.labels; }
+		_axis.labels = v;
 		return _instance;
 	};
 	_instance.xScale = function(v){
@@ -482,6 +566,11 @@ function sentio_timeline_line() {
 	_instance.xExtent = function(v){
 		if(!arguments.length) { return _extent.x; }
 		_extent.x = v;
+		return _instance;
+	};
+	_instance.multiExtent = function(v) { 
+		if(!arguments.length) { return _multiExtent; }
+		_multiExtent = v;
 		return _instance;
 	};
 	_instance.markerXValue = function(v){
